@@ -1,0 +1,65 @@
+.lp-price-control {
+  margin: 18px 0;
+}
+.lp-price-control-head,
+.lp-price-endpoints {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.lp-price-scale,
+.lp-price-nudge {
+  display: flex;
+  gap: 4px;
+}
+.lp-price-control button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--lp-radius-small);
+  background: transparent;
+  color: #929292;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.lp-price-control button[aria-pressed="true"] {
+  background: #262626;
+  color: #eee;
+}
+.lp-price-control button:hover {
+  background: #292929;
+  color: #eee;
+}
+.lp-price-control button:focus-visible {
+  outline: 2px solid #7897ff;
+  outline-offset: 2px;
+}
+.lp-price-control .ant-slider {
+  margin: 15px 8px 8px;
+  padding-block: 8px;
+  height: 22px;
+}
+.lp-price-control .ant-slider-rail,
+.lp-price-control .ant-slider-track {
+  height: 6px;
+  border-radius: var(--lp-radius-small);
+}
+.lp-price-control .ant-slider-handle::after {
+  box-shadow: 0 0 0 2px #7897ff;
+}
+.lp-price-endpoints {
+  color: #808080;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding-inline: 4px;
+}
+.lp-price-control .ant-slider-handle {
+  top: 50%;
+  margin-top: -7px;
+}

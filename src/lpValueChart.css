@@ -1,0 +1,146 @@
+.lp-value-chart {
+  min-width: 0;
+}
+.lp-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 16px 0 8px;
+}
+.lp-value-chart-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+.lp-value-chart-canvas {
+  width: 100%;
+  height: clamp(480px, 62vh, 760px);
+  touch-action: none;
+}
+.lp-value-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  color: #a1a1aa;
+  font-size: 12px;
+}
+.lp-value-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.lp-value-legend i {
+  display: inline-block;
+  width: 20px;
+  height: 2px;
+}
+.lp-value-legend .dashed {
+  height: 0;
+  border-top: 2px dashed;
+}
+.lp-value-legend .baseline {
+  height: 1px;
+  background: repeating-linear-gradient(
+    to right,
+    #777 0 5px,
+    transparent 5px 13px
+  );
+}
+@media (max-width: 600px) {
+  .lp-value-chart-canvas {
+    height: 420px;
+  }
+}
+
+.lp-chart-surface {
+  position: relative;
+  isolation: isolate;
+}
+.lp-chart-surface::before {
+  content: "";
+  position: absolute;
+  inset: 18px 20px 38px 16px;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(circle, #ffffff30 1px, transparent 1.2px);
+  background-size: 28px 28px;
+}
+
+.lp-value-legend {
+  margin-top: 8px;
+  color: #8b8b8b;
+}
+.lp-value-chart-toolbar {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 6px;
+  border: 1px solid #ffffff0c;
+  border-radius: var(--lp-radius-control);
+  background: #ffffff03;
+}
+.lp-zoom-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.lp-zoom-group + .lp-zoom-group {
+  border-left: 1px solid #ffffff12;
+  padding-left: 10px;
+}
+.lp-zoom-group > span {
+  font-size: 12px;
+  color: #868686;
+  padding: 0 7px 0 4px;
+}
+.lp-chart-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--lp-radius-small);
+  color: #a3a3a3;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  transition:
+    background 120ms,
+    color 120ms;
+}
+.lp-chart-button:hover {
+  color: #f5f5f5;
+  background: #ffffff09;
+}
+.lp-chart-button:active {
+  background: #ffffff12;
+}
+.lp-chart-button:focus:not(:focus-visible) {
+  outline: none;
+}
+.lp-chart-button:focus-visible {
+  outline: 2px solid #7897ff;
+  outline-offset: 2px;
+}
+.lp-value-chart-toolbar > .lp-chart-button {
+  width: auto;
+  padding: 0 8px;
+  margin-left: 2px;
+}
+@media (max-width: 480px) {
+  .lp-value-chart-toolbar {
+    gap: 6px;
+  }
+  .lp-zoom-group + .lp-zoom-group {
+    padding-left: 6px;
+  }
+}
