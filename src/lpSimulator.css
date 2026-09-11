@@ -270,3 +270,34 @@
     transition: none;
   }
 }
+
+.lp-toolbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+.lp-language-select {
+  width: 126px;
+  flex-shrink: 0;
+}
+.lp-network-toolbar:empty {
+  display: none;
+}
+html[lang="en-US"] .quick .ant-btn {
+  min-width: 108px;
+}
+@media (max-width: 600px) {
+  .lp-toolbar-right {
+    gap: 8px;
+  }
+  .lp-mode-tabs {
+    gap: 16px;
+  }
+  .lp-network-toolbar > .ant-select {
+    width: 140px;
+  }
+}

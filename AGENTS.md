@@ -1,6 +1,6 @@
 # LP Simulator
 
-- Independent React + Ant Design + ECharts simulator. Chinese UI.
+- Independent React + Ant Design + ECharts simulator. Chinese and English UI; keep both languages in sync.
 - Keep manual and NFT modes working, and preserve input drafts across mode switches.
 - Only read public chain data. Never add wallet signing, transaction execution, or robot services to test UI changes.
 - Do not put secrets or real service configuration in frontend code, logs, or commits.

@@ -1,3 +1,4 @@
+import { useI18n, getLocale } from "./useI18n";
 import LpPriceSlider from "./LpPriceSlider";
 import LpValueChart from "./LpValueChart";
 import { createPortal } from "react-dom";
@@ -41,7 +42,7 @@ const sourceKey = (v: SimulationImport) =>
     v.stateView?.toLowerCase(),
   ]);
 const num = (v: number, d = 2) =>
-  v.toLocaleString("zh-CN", { maximumFractionDigits: d });
+  v.toLocaleString(getLocale(), { maximumFractionDigits: d });
 const signed = (v: number) => (v > 0 ? "+" : "") + num(v);
 export default function LpSimulator({
   toolbarRoot,
@@ -50,6 +51,7 @@ export default function LpSimulator({
   toolbarRoot: HTMLElement | null;
   active: boolean;
 }) {
+  const { t, locale } = useI18n();
   const [form, setForm] = useState<SimulationImport>({
     chainId: 8453,
     rpcUrl: "https://mainnet.base.org",
@@ -191,15 +193,15 @@ export default function LpSimulator({
   const stats =
     model && current
       ? [
-          ["LP 本金价值", num(current.value) + " " + model.quote.symbol],
+          [t("LP 本金价值"), num(current.value) + " " + model.quote.symbol],
           [
-            "相对入场价值",
+            t("相对入场价值"),
             baseline === null
-              ? "待获取入场价值"
+              ? t("待获取入场价值")
               : signed(current.value - baseline) + " " + model.quote.symbol,
           ],
           [
-            "本金变化比例",
+            t("本金变化比例"),
             baseline !== null && baseline > 0
               ? signed((current.value / baseline - 1) * 100) + "%"
               : "—",
@@ -256,14 +258,14 @@ export default function LpSimulator({
         createPortal(
           <>
             <Select
-              aria-label="网络"
+              aria-label={t("网络")}
               value={customNetwork ? -1 : form.chainId}
               options={[
                 ...simulationNetworks.map((n) => ({
                   label: n.name,
                   value: n.id,
                 })),
-                { label: "自定义网络", value: -1 },
+                { label: t("自定义网络"), value: -1 },
               ]}
               onChange={(id) => {
                 setCustomNetwork(id === -1);
@@ -291,7 +293,7 @@ export default function LpSimulator({
             <Popover
               trigger="click"
               placement="bottomRight"
-              title="RPC 设置"
+              title={t("RPC 设置")}
               content={
                 <div className="lp-rpc-settings">
                   <label className="field">
@@ -315,9 +317,9 @@ export default function LpSimulator({
                   </label>
 
                   <label className="field">
-                    <span>RPC 地址</span>
+                    <span>{t("RPC 地址")}</span>
                     <Input
-                      aria-label="RPC 地址"
+                      aria-label={t("RPC 地址")}
                       value={form.rpcUrl}
                       onChange={(e) => edit({ rpcUrl: e.target.value })}
                     />
@@ -325,7 +327,7 @@ export default function LpSimulator({
                 </div>
               }
             >
-              <Button>RPC 设置</Button>
+              <Button>{t("RPC 设置")}</Button>
             </Popover>
           </>,
           toolbarRoot,
@@ -336,12 +338,12 @@ export default function LpSimulator({
       >
         <aside className="panel" ref={importCardRef}>
           <h2>
-            <span>导入 NFT 仓位</span>
+            <span>{t("导入 NFT 仓位")}</span>
           </h2>
           <label className="field">
-            <span>协议</span>
+            <span>{t("协议")}</span>
             <Select
-              aria-label="协议"
+              aria-label={t("协议")}
               value={form.protocol}
               options={[
                 { label: "Uniswap V3", value: "uniswap-v3" },
@@ -357,11 +359,11 @@ export default function LpSimulator({
             />
           </label>
           <details className="lp-contract-settings">
-            <summary>自定义合约</summary>
+            <summary>{t("自定义合约")}</summary>
             <label className="field">
-              <span>NFT 管理合约</span>
+              <span>{t("NFT 管理合约")}</span>
               <Input
-                aria-label="NFT 管理合约"
+                aria-label={t("NFT 管理合约")}
                 value={form.manager}
                 onChange={(e) => edit({ manager: e.target.value })}
               />
@@ -378,9 +380,9 @@ export default function LpSimulator({
             )}
           </details>
           <label className="field">
-            <span>NFT 编号</span>
+            <span>{t("NFT 编号")}</span>
             <Input
-              aria-label="NFT 编号"
+              aria-label={t("NFT 编号")}
               value={form.tokenId}
               onChange={(e) => edit({ tokenId: e.target.value })}
               onPressEnter={() => void load()}
@@ -392,30 +394,39 @@ export default function LpSimulator({
             loading={loading}
             onClick={() => void load()}
           >
-            读取仓位
+            {t("读取仓位")}
           </Button>
           {!form.manager && (
             <Alert
               type="info"
-              title="该链与协议暂无预设，请展开自定义合约填写地址。"
+              title={t("该链与协议暂无预设，请展开自定义合约填写地址。")}
             />
           )}
           {error && (
-            <Alert type="error" showIcon title="读取失败" description={error} />
+            <Alert
+              type="error"
+              showIcon
+              title={t("读取失败")}
+              description={t(error)}
+            />
           )}
           {position && (
             <details className="lp-read-details">
-              <summary>仓位详情</summary>
+              <summary>{t("仓位详情")}</summary>
               <div className="note">
-                已读取网络：{position.chainId}
+                {t("已读取网络：")}
+                {position.chainId}
                 <br />
                 NFT：{position.tokenId}
                 <br />
-                区块：{position.blockNumber}
+                {t("区块：")}
+                {position.blockNumber}
                 <br />
-                区块时间：{new Date(position.blockTime).toLocaleString("zh-CN")}
+                {t("区块时间：")}
+                {new Date(position.blockTime).toLocaleString(locale)}
                 <br />
-                持有人：<span className="address">{position.owner}</span>
+                {t("持有人：")}
+                <span className="address">{position.owner}</span>
               </div>
             </details>
           )}
@@ -423,9 +434,9 @@ export default function LpSimulator({
             <>
               <div className="divider" />
               <label className="field">
-                <span>计价单位</span>
+                <span>{t("计价单位")}</span>
                 <Select
-                  aria-label="计价单位"
+                  aria-label={t("计价单位")}
                   value={reverse ? "token0" : "token1"}
                   options={[
                     { value: "token1", label: position!.token1.symbol },
@@ -449,13 +460,13 @@ export default function LpSimulator({
               </label>
               <label className="field">
                 <span>
-                  入场价格 · {model.quote.symbol}/{model.base.symbol}
+                  {t("入场价格 ·")} {model.quote.symbol}/{model.base.symbol}
                 </span>
                 <InputNumber
-                  aria-label="记录入场价格"
+                  aria-label={t("记录入场价格")}
                   min={Number.MIN_VALUE}
                   value={entry}
-                  placeholder="填写实际入场价"
+                  placeholder={t("填写实际入场价")}
                   onChange={(v) => saveRecord(v, cost)}
                 />
               </label>
@@ -466,14 +477,14 @@ export default function LpSimulator({
                       ? "warning"
                       : "info"
                   }
-                  title={historyStatus}
+                  title={t(historyStatus)}
                 />
               )}
               {history && (
                 <div className="lp-entry-options">
                   {[
-                    ["首次创建", history.first],
-                    ["最近加仓", history.latest],
+                    [t("首次创建"), history.first],
+                    [t("最近加仓"), history.latest],
                   ].map(([label, raw]) => {
                     if (!raw || typeof raw === "string") return null;
                     return (
@@ -486,39 +497,41 @@ export default function LpSimulator({
                           <Button
                             size="small"
                             onClick={() => saveRecord(raw.price, cost)}
-                            aria-label={`采用${String(label)}价`}
+                            aria-label={t("采用{0}价", String(label))}
                           >
-                            采用
+                            {t("采用")}
                           </Button>
                         </div>
                         <details>
-                          <summary>来源</summary>
+                          <summary>{t("来源")}</summary>
                           <p>
-                            {new Date(raw.time).toLocaleString("zh-CN")} · 区块{" "}
-                            {raw.block}
+                            {new Date(raw.time).toLocaleString(locale)}
+                            {t("· 区块")} {raw.block}
                           </p>
                           <p className="address">{raw.transaction}</p>
-                          <p>{raw.method}</p>
+                          <p>{t(raw.method)}</p>
                         </details>
                       </div>
                     );
                   })}
                   {history.warning && (
                     <details>
-                      <summary>历史读取说明</summary>
-                      <p>{history.warning}</p>
+                      <summary>{t("历史读取说明")}</summary>
+                      <p>{t(history.warning)}</p>
                     </details>
                   )}
                 </div>
               )}
-              {saveError && <Alert type="warning" title={saveError} />}
+              {saveError && <Alert type="warning" title={t(saveError)} />}
               <label className="field">
-                <span>实际投入本金（可选，{model.quote.symbol}）</span>
+                <span>
+                  {t("实际投入本金（可选，{0}）", model.quote.symbol)}
+                </span>
                 <InputNumber
-                  aria-label="实际投入本金"
+                  aria-label={t("实际投入本金")}
                   min={0.000000001}
                   value={cost}
-                  placeholder="默认按入场价估算"
+                  placeholder={t("默认按入场价估算")}
                   onChange={(v) => saveRecord(entry, v)}
                 />
               </label>
@@ -529,10 +542,12 @@ export default function LpSimulator({
           {stale && (
             <Alert
               type="warning"
-              title="输入已修改，下方仍是上一次导入的仓位。点击读取仓位后更新。"
+              title={t(
+                "输入已修改，下方仍是上一次导入的仓位。点击读取仓位后更新。",
+              )}
             />
           )}
-          {modelError && <Alert type="error" title={modelError} />}
+          {modelError && <Alert type="error" title={t(modelError)} />}
           {model && (
             <div className="panel">
               <div className="section-head">
@@ -544,19 +559,21 @@ export default function LpSimulator({
               </div>
               <div className="target">
                 <label className="field">
-                  <span>模拟价格</span>
+                  <span>{t("模拟价格")}</span>
                   <InputNumber
-                    aria-label="模拟价格"
+                    aria-label={t("模拟价格")}
                     value={target}
                     min={Number.MIN_VALUE}
                     controls={false}
                     onChange={setTarget}
                   />
                 </label>
-                <span>往左：{model.base.symbol} 变便宜；往右：变贵</span>
+                <span>
+                  {t("往左：{0} 变便宜；往右：变贵", model.base.symbol)}
+                </span>
               </div>
               {!validTarget && (
-                <Alert type="warning" title="请输入大于 0 的模拟价格。" />
+                <Alert type="warning" title={t("请输入大于 0 的模拟价格。")} />
               )}
               <LpPriceSlider
                 value={validTarget ? target : model.price}
@@ -568,20 +585,35 @@ export default function LpSimulator({
               />
               <div className="quick">
                 {entry !== null && entry > 0 && (
-                  <Button onClick={() => setTarget(entry)}>到入场价</Button>
+                  <Button onClick={() => setTarget(entry)}>
+                    {t("到入场价")}
+                  </Button>
                 )}
-                <Button onClick={() => setTarget(model!.lower)}>到下限</Button>
-                <Button onClick={() => setTarget(model!.price)}>
-                  回当前价
+                <Button onClick={() => setTarget(model!.lower)}>
+                  {t("到下限")}
                 </Button>
-                <Button onClick={() => setTarget(model!.upper)}>到上限</Button>
+                <Button onClick={() => setTarget(model!.price)}>
+                  {t("回当前价")}
+                </Button>
+                <Button onClick={() => setTarget(model!.upper)}>
+                  {t("到上限")}
+                </Button>
               </div>
               {current && (
                 <>
                   <p className="muted">
                     {baseline === null
-                      ? "等待入场价或填写投入本金后计算入场盈亏。"
-                      : `入场价值：${num(baseline)} ${model.quote.symbol}（${cost === null ? "按当前流动性在入场价估算；多次增减仓时不等于历史累计投入" : "采用填写的投入本金"}）`}
+                      ? t("等待入场价或填写投入本金后计算入场盈亏。")
+                      : t(
+                          "入场价值：{0} {1}（{2}）",
+                          num(baseline),
+                          model.quote.symbol,
+                          cost === null
+                            ? t(
+                                "按当前流动性在入场价估算；多次增减仓时不等于历史累计投入",
+                              )
+                            : t("采用填写的投入本金"),
+                        )}
                   </p>
                   <div className="metrics">
                     {stats.map(([label, v]) => (
@@ -592,7 +624,7 @@ export default function LpSimulator({
                     ))}
                   </div>
                   <p>
-                    模拟持币：
+                    {t("模拟持币：")}
                     <b>
                       {num(current.base, 8)} {model.base.symbol} +{" "}
                       {num(current.quote, 8)} {model.quote.symbol}
@@ -617,8 +649,8 @@ export default function LpSimulator({
           {model && (
             <div className="boundaries">
               {[
-                [model.lower, "到左侧下限"],
-                [model.upper, "到右侧上限"],
+                [model.lower, t("到左侧下限")],
+                [model.upper, t("到右侧上限")],
               ].map(([p, label]) => {
                 const v = model.at(Number(p));
                 return (
@@ -628,20 +660,20 @@ export default function LpSimulator({
                     </span>
                     <h3>
                       {baseline === null
-                        ? "待获取入场价值"
+                        ? t("待获取入场价值")
                         : `${signed(v.value - baseline)} ${model.quote.symbol}`}
                     </h3>
                     <p>
-                      本金价值 {num(v.value)} {model.quote.symbol}
+                      {t("本金价值")} {num(v.value)} {model.quote.symbol}
                     </p>
                     <p className="muted">
                       {Number(p) === model.lower
-                        ? "全部变成 " +
+                        ? t("全部变成 ") +
                           model.base.symbol +
-                          "；继续下跌，价值继续减少。"
-                        : "全部变成 " +
+                          t("；继续下跌，价值继续减少。")
+                        : t("全部变成 ") +
                           model.quote.symbol +
-                          "；以该币计价的本金价值保持不变。"}
+                          t("；以该币计价的本金价值保持不变。")}
                     </p>
                   </div>
                 );
@@ -653,7 +685,7 @@ export default function LpSimulator({
       {model && (
         <section className="panel scenario">
           <h2>
-            <span>不同价格下的结果</span>
+            <span>{t("不同价格下的结果")}</span>
           </h2>
           <Table
             pagination={false}
@@ -662,12 +694,11 @@ export default function LpSimulator({
             scroll={{ x: 650 }}
             columns={[
               {
-                title:
-                  "价格（" +
-                  model.quote.symbol +
-                  "/" +
-                  model.base.symbol +
-                  "）",
+                title: t(
+                  "价格（{0}/{1}）",
+                  model.quote.symbol,
+                  model.base.symbol,
+                ),
                 dataIndex: "price",
                 render: (v: number) => (
                   <Button type="text" onClick={() => setTarget(v)}>
@@ -676,23 +707,23 @@ export default function LpSimulator({
                 ),
               },
               {
-                title: "LP 价值",
+                title: t("LP 价值"),
                 dataIndex: "value",
                 render: (v: number) => num(v),
               },
               {
-                title: "本金盈亏",
+                title: t("本金盈亏"),
                 dataIndex: "value",
                 render: (v: number) =>
                   baseline === null ? "—" : signed(v - baseline),
               },
               {
-                title: model.base.symbol + " 数量",
+                title: model.base.symbol + t(" 数量"),
                 dataIndex: "base",
                 render: (v: number) => num(v, 8),
               },
               {
-                title: model.quote.symbol + " 数量",
+                title: model.quote.symbol + t(" 数量"),
                 dataIndex: "quote",
                 render: (v: number) => num(v, 8),
               },

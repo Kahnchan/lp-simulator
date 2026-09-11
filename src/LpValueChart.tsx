@@ -1,3 +1,4 @@
+import { useI18n, getLocale } from "./useI18n";
 import { useEffect, useRef, useState } from "react";
 import { Plus, Minus, RotateCcw } from "lucide-react";
 import {
@@ -42,9 +43,9 @@ interface Props {
   quote: string;
 }
 const priceText = (v: number) =>
-  v.toLocaleString("zh-CN", { maximumSignificantDigits: 9 });
+  v.toLocaleString(getLocale(), { maximumSignificantDigits: 9 });
 const valueText = (v: number) =>
-  v.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+  v.toLocaleString(getLocale(), { maximumFractionDigits: 2 });
 
 function markerLabel(name: string, price: number, color: string, lane: number) {
   return {
@@ -74,6 +75,7 @@ export default function LpValueChart({
   baseline,
   quote,
 }: Props) {
+  const { t, locale } = useI18n();
   const host = useRef<HTMLDivElement>(null);
   const chart = useRef<EChartsType | null>(null);
   const [width, setWidth] = useState(0);
@@ -282,7 +284,7 @@ export default function LpValueChart({
       series: [
         {
           id: "lp",
-          name: "LP 价值",
+          name: t("LP 价值"),
           type: "line",
           showSymbol: false,
           data: points.map((p) => [p.price, p.value]),
@@ -313,12 +315,12 @@ export default function LpValueChart({
               {
                 xAxis: lower,
                 lineStyle: { color: "transparent" },
-                label: markerLabel("下限", lower, "#62cfb1", 0),
+                label: markerLabel(t("下限"), lower, "#a1a1aa", 0),
               },
               {
                 xAxis: upper,
                 lineStyle: { color: "transparent" },
-                label: markerLabel("上限", upper, "#ed969f", 2),
+                label: markerLabel(t("上限"), upper, "#a1a1aa", 2),
               },
               ...(entry !== null
                 ? [
@@ -329,14 +331,14 @@ export default function LpValueChart({
                         type: "dashed",
                         width: 1.5,
                       },
-                      label: markerLabel("入场", entry, "#e4dcce", 1),
+                      label: markerLabel(t("入场"), entry, "#e4dcce", 1),
                     },
                   ]
                 : []),
               {
                 xAxis: target,
                 lineStyle: { color: "#cf9fff", type: "solid", width: 1.5 },
-                label: markerLabel("模拟价", target, "#cf9fff", 3),
+                label: markerLabel(t("模拟价"), target, "#cf9fff", 3),
               },
               ...(baseline !== null
                 ? [
@@ -351,7 +353,7 @@ export default function LpValueChart({
         },
         {
           id: "hold",
-          name: "持币不动",
+          name: t("持币不动"),
           type: "line",
           showSymbol: false,
           data: points.map((p) => [p.price, p.hold]),
@@ -360,7 +362,7 @@ export default function LpValueChart({
         },
         {
           id: "target",
-          name: "模拟价格",
+          name: t("模拟价格"),
           type: "scatter",
           symbolSize: 10,
           itemStyle: {
@@ -382,6 +384,7 @@ export default function LpValueChart({
       silent: true,
     });
   }, [
+    locale,
     model,
     min,
     max,
@@ -426,12 +429,16 @@ export default function LpValueChart({
     <div className="lp-value-chart">
       <div className="lp-chart-header">
         <div className="lp-value-chart-toolbar">
-          <div className="lp-zoom-group" role="group" aria-label="横向缩放">
-            <span>横向</span>
+          <div
+            className="lp-zoom-group"
+            role="group"
+            aria-label={t("横向缩放")}
+          >
+            <span>{t("横向")}</span>
             <button
               type="button"
               className="lp-chart-button"
-              aria-label="放大图表"
+              aria-label={t("放大图表")}
               onClick={() => zoom(0.7)}
             >
               <Plus size={15} aria-hidden="true" />
@@ -439,19 +446,23 @@ export default function LpValueChart({
             <button
               type="button"
               className="lp-chart-button"
-              aria-label="缩小图表"
+              aria-label={t("缩小图表")}
               onClick={() => zoom(1 / 0.7)}
             >
               <Minus size={15} aria-hidden="true" />
             </button>
           </div>
-          <div className="lp-zoom-group" role="group" aria-label="纵向缩放">
-            <span>纵向</span>
+          <div
+            className="lp-zoom-group"
+            role="group"
+            aria-label={t("纵向缩放")}
+          >
+            <span>{t("纵向")}</span>
             <button
               type="button"
               className="lp-chart-button"
-              aria-label="纵向拉伸"
-              title="纵向拉伸 · Shift + 滚轮"
+              aria-label={t("纵向拉伸")}
+              title={t("纵向拉伸 · Shift + 滚轮")}
               onClick={() => zoomVertical(0.7)}
             >
               <Plus size={15} aria-hidden="true" />
@@ -459,8 +470,8 @@ export default function LpValueChart({
             <button
               type="button"
               className="lp-chart-button"
-              aria-label="纵向压扁"
-              title="纵向压扁 · Shift + 滚轮"
+              aria-label={t("纵向压扁")}
+              title={t("纵向压扁 · Shift + 滚轮")}
               onClick={() => zoomVertical(1 / 0.7)}
             >
               <Minus size={15} aria-hidden="true" />
@@ -475,7 +486,7 @@ export default function LpValueChart({
             }}
           >
             <RotateCcw size={13} aria-hidden="true" />
-            重置视野
+            {t("重置视野")}
           </button>
         </div>
       </div>
@@ -484,21 +495,25 @@ export default function LpValueChart({
           ref={host}
           className="lp-value-chart-canvas"
           role="img"
-          aria-label={`LP 价值图表，区间下限 ${priceText(lower)}，上限 ${priceText(upper)}`}
+          aria-label={t(
+            "LP 价值图表，区间下限 {0}，上限 {1}",
+            priceText(lower),
+            priceText(upper),
+          )}
         />
       </div>
       <div className="lp-value-legend">
         <span>
           <i style={{ background: "#7897ff" }} />
-          LP 价值
+          {t("LP 价值")}
         </span>
         <span>
           <i className="dashed" style={{ color: "#e1ad72" }} />
-          持币不动
+          {t("持币不动")}
         </span>
         <span>
           <i className="baseline" />
-          入场本金
+          {t("入场本金")}
         </span>
       </div>
     </div>

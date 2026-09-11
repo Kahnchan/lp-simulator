@@ -1,3 +1,4 @@
+import { useI18n, getLocale } from "../src/useI18n";
 import LpPriceSlider from "../src/LpPriceSlider";
 import { lpSimulatorTheme } from "../src/lpSimulatorTheme";
 import LpValueChart from "../src/LpValueChart";
@@ -7,13 +8,14 @@ import { createPosition } from "./lp-simulator-math.mjs";
 import "./lp-simulator.css";
 
 const number = (n, digits = 2) =>
-  n.toLocaleString("zh-CN", {
+  n.toLocaleString(getLocale(), {
     maximumFractionDigits: digits,
     minimumFractionDigits: digits,
   });
 const signed = (n, digits = 2) =>
   `${n > 0.0000001 ? "+" : ""}${number(Math.abs(n) < 1e-8 ? 0 : n, digits)}`;
 export default function ManualLpSimulator() {
+  const { t, locale } = useI18n();
   const [saved] = useState(() => {
     try {
       const value = JSON.parse(
@@ -49,7 +51,7 @@ export default function ManualLpSimulator() {
   try {
     model = createPosition(entry, lower, upper, capital);
     if (!Number.isFinite(target) || target <= 0)
-      throw Error("目标价格必须大于 0。");
+      throw Error(t("目标价格必须大于 0。"));
   } catch (e) {
     error = e.message;
   }
@@ -63,10 +65,10 @@ export default function ManualLpSimulator() {
     : 2;
   const status = (p) =>
     p <= lower
-      ? "下限及以下 · 全部 ETH"
+      ? t("下限及以下 · 全部 ETH")
       : p >= upper
-        ? "上限及以上 · 全部 USDC"
-        : "区间内 · ETH + USDC";
+        ? t("上限及以上 · 全部 USDC")
+        : t("区间内 · ETH + USDC");
   const rangePercent = (bound, direction) =>
     Number.isFinite(entry) && entry > 0 && Number.isFinite(bound)
       ? Number(((bound / entry - 1) * direction * 100).toPrecision(12))
@@ -154,34 +156,36 @@ export default function ManualLpSimulator() {
     Math.abs(value) < 1e-8 ? "" : value > 0 ? "scenario-gain" : "scenario-loss";
   const cols = [
     {
-      title: "ETH 价格",
+      title: t("ETH 价格"),
       dataIndex: "price",
       render: (p) => {
         const label =
           p === lower
-            ? "下限"
+            ? t("下限")
             : p === upper
-              ? "上限"
+              ? t("上限")
               : p === entry
-                ? "入场"
+                ? t("入场")
                 : "";
         return (
           <button
             className="scenario-price"
             type="button"
             onClick={() => setTarget(p)}
-            aria-label={`模拟 ETH 价格 ${number(p)}`}
+            aria-label={t("模拟 ETH 价格 {0}", number(p))}
             aria-pressed={p === target}
           >
             <span>{number(p)}</span>
             {label && <span className="scenario-tag">{label}</span>}
-            {p === target && <span className="scenario-current">模拟中</span>}
+            {p === target && (
+              <span className="scenario-current">{t("模拟中")}</span>
+            )}
           </button>
         );
       },
     },
     {
-      title: "币价涨跌",
+      title: t("币价涨跌"),
       align: "right",
       render: (_, r) => (
         <span className={tone(r.price / entry - 1)}>
@@ -190,29 +194,28 @@ export default function ManualLpSimulator() {
       ),
     },
     {
-      title: "LP 价值",
+      title: t("LP 价值"),
       align: "right",
       dataIndex: "value",
       render: (n) => <span className="scenario-value">{number(n)}</span>,
     },
     {
-      title: "本金盈亏",
+      title: t("本金盈亏"),
       align: "right",
       render: (_, r) => (
         <span className={tone(r.pnl)}>
-          {signed(r.pnl)}
-          <small>{signed(r.returnPct)}%</small>
+          {signed(r.pnl)} <small>{signed(r.returnPct)}%</small>
         </span>
       ),
     },
     {
-      title: "持币不动",
+      title: t("持币不动"),
       align: "right",
       dataIndex: "hold",
       render: (n) => number(n),
     },
     {
-      title: "相对持币 / IL",
+      title: t("相对持币 / IL"),
       align: "right",
       render: (_, r) => (
         <span className={tone(r.il)}>
@@ -228,18 +231,20 @@ export default function ManualLpSimulator() {
         <div className="layout">
           <aside className="panel">
             <h2>
-              <span>设置仓位</span>
+              <span>{t("设置仓位")}</span>
             </h2>
             <div className="pair">
               ETH <span>／</span> USDC
             </div>
             <p className="muted">
-              价格 = 1 ETH 值多少 USDC。USDC 为固定计价单位；默认数字仅为示例。
+              {t(
+                "价格 = 1 ETH 值多少 USDC。USDC 为固定计价单位；默认数字仅为示例。",
+              )}
             </p>
-            {field("入场价格", entry, setEntry, "USDC")}
-            {field("投入本金", capital, setCapital, "USDC")}
+            {field(t("入场价格"), entry, setEntry, "USDC")}
+            {field(t("投入本金"), capital, setCapital, "USDC")}
             {field(
-              "当前价格（手动记录）",
+              t("当前价格（手动记录）"),
               market,
               (v) => {
                 if (target === market) setTarget(v);
@@ -248,48 +253,53 @@ export default function ManualLpSimulator() {
               "USDC",
             )}
             <p className="muted">
-              入场价、本金、当前价和区间会保存在当前浏览器。手动模式不自动读取行情；滑块仅改变模拟价格。
+              {t(
+                "入场价、本金、当前价和区间会保存在当前浏览器。手动模式不自动读取行情；滑块仅改变模拟价格。",
+              )}
             </p>
             {saveError && (
               <Alert
                 type="warning"
-                message="浏览器未能保存参数，当前输入仅保留在本页。"
+                message={t("浏览器未能保存参数，当前输入仅保留在本页。")}
               />
             )}
             <div className="divider" />
-            <div className="label">相对入场价的区间 · 左右独立设置</div>
-            {rangeControl("左侧下跌幅度", lower, -1, setLower)}
-            {rangeControl("右侧上涨幅度", upper, 1, setUpper)}
-            {field("区间下限", lower, setLower, "USDC")}
-            {field("区间上限", upper, setUpper, "USDC")}
+            <div className="label">{t("相对入场价的区间 · 左右独立设置")}</div>
+            {rangeControl(t("左侧下跌幅度"), lower, -1, setLower)}
+            {rangeControl(t("右侧上涨幅度"), upper, 1, setUpper)}
+            {field(t("区间下限"), lower, setLower, "USDC")}
+            {field(t("区间上限"), upper, setUpper, "USDC")}
           </aside>
           <section className="content">
             <div className="panel">
               <div className="section-head">
                 <h2>
-                  <span>价格走到这里</span>
+                  <span>{t("价格走到这里")}</span>
                 </h2>
                 {valid && <span className="pill">{status(target)}</span>}
               </div>
               <p className="muted">
-                入场价 {Number.isFinite(entry) ? number(entry) : "—"} ／ 当前价{" "}
+                {t("入场价")} {Number.isFinite(entry) ? number(entry) : "—"}{" "}
+                {t("／ 当前价")}{" "}
                 {Number.isFinite(market) ? number(market) : "—"} USDC ·{" "}
                 {target === market
-                  ? "滑块位于记录的当前价"
-                  : "正在模拟假设价格"}
+                  ? t("滑块位于记录的当前价")
+                  : t("正在模拟假设价格")}
               </p>
               <div className="target">
                 {field(
-                  "目标价格（也可手动输入任意正数）",
+                  t("目标价格（也可手动输入任意正数）"),
                   target,
                   setTarget,
                   "USDC",
                 )}
                 {valid && (
-                  <span>较入场 {signed((target / entry - 1) * 100)}%</span>
+                  <span>
+                    {t("较入场")} {signed((target / entry - 1) * 100)}%
+                  </span>
                 )}
               </div>
-              {error && <Alert type="error" showIcon message={error} />}
+              {error && <Alert type="error" showIcon message={t(error)} />}
               {valid && (
                 <>
                   <LpPriceSlider
@@ -301,18 +311,24 @@ export default function ManualLpSimulator() {
                     onChange={setTarget}
                   />
                   <div className="quick">
-                    <Button onClick={() => setTarget(lower)}>到下限</Button>
+                    <Button onClick={() => setTarget(lower)}>
+                      {t("到下限")}
+                    </Button>
                     {Number.isFinite(market) && market > 0 && (
                       <Button onClick={() => setTarget(market)}>
-                        回当前价
+                        {t("回当前价")}
                       </Button>
                     )}
-                    <Button onClick={() => setTarget(entry)}>回入场价</Button>
-                    <Button onClick={() => setTarget(upper)}>到上限</Button>
+                    <Button onClick={() => setTarget(entry)}>
+                      {t("回入场价")}
+                    </Button>
+                    <Button onClick={() => setTarget(upper)}>
+                      {t("到上限")}
+                    </Button>
                   </div>
                   <div className="metrics manual-metrics">
                     <div>
-                      <span>LP 资产价值</span>
+                      <span>{t("LP 资产价值")}</span>
                       <strong>{number(current.value)}</strong>
                       <small>USDC</small>
                       <div className="metric-detail">
@@ -321,16 +337,16 @@ export default function ManualLpSimulator() {
                       </div>
                     </div>
                     <div>
-                      <span>相对投入本金</span>
+                      <span>{t("相对投入本金")}</span>
                       <strong>{signed(current.returnPct)}%</strong>
                       <small>{signed(current.pnl)} USDC</small>
                     </div>
                     <div>
-                      <span>相对持币不动 / 无常损失</span>
+                      <span>{t("相对持币不动 / 无常损失")}</span>
                       <strong>{signed(current.ilPct)}%</strong>
                       <small>{signed(current.il)} USDC</small>
                       <div className="metric-detail">
-                        持币价值 {number(current.hold)} USDC
+                        {t("持币价值")} {number(current.hold)} USDC
                       </div>
                     </div>
                   </div>
@@ -358,13 +374,13 @@ export default function ManualLpSimulator() {
                 {[
                   [
                     lower,
-                    "跌到下限",
-                    "全部变成 ETH；继续下跌，资产价值继续下降。",
+                    t("跌到下限"),
+                    t("全部变成 ETH；继续下跌，资产价值继续下降。"),
                   ],
                   [
                     upper,
-                    "涨到上限",
-                    "全部变成 USDC；继续上涨，LP 价值不再增加。",
+                    t("涨到上限"),
+                    t("全部变成 USDC；继续上涨，LP 价值不再增加。"),
                   ],
                 ].map(([p, title, note]) => {
                   const r = model.at(p);
@@ -374,10 +390,10 @@ export default function ManualLpSimulator() {
                         {title} · {number(p, 4)}
                       </span>
                       <h3>
-                        {signed(r.returnPct)}% <small>相对本金</small>
+                        {signed(r.returnPct)}% <small>{t("相对本金")}</small>
                       </h3>
                       <p>
-                        {signed(r.pnl)} USDC · 价值 {number(r.value)}
+                        {signed(r.pnl)} {t("USDC · 价值")} {number(r.value)}
                       </p>
                       <p className="muted">{note}</p>
                     </div>
@@ -390,8 +406,8 @@ export default function ManualLpSimulator() {
         {valid && (
           <section className="panel scenario manual-scenario">
             <div className="scenario-heading">
-              <h2>价格情景</h2>
-              <span>金额 · USDC</span>
+              <h2>{t("价格情景")}</h2>
+              <span>{t("金额 · USDC")}</span>
             </div>
             <Table
               columns={cols}
