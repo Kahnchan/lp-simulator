@@ -31,7 +31,7 @@ import {
 
 /** Expected owner is the actual NFT holder: the wallet or its verified Sickle. */
 export interface PositionReference {
-  protocol: "uniswap-v3" | "uniswap-v4";
+  protocol: "uniswap-v3" | "uniswap-v4" | "pancakeswap-v3";
   manager: Address;
   tokenId: bigint;
   expectedOwner: Address;
@@ -248,7 +248,9 @@ function sameAddress(a: string, b: string) {
 }
 
 function validateReference(reference: PositionReference): PositionReference {
-  if (!["uniswap-v3", "uniswap-v4"].includes(reference.protocol))
+  if (
+    !["uniswap-v3", "uniswap-v4", "pancakeswap-v3"].includes(reference.protocol)
+  )
     throw new Error("不支持的仓位协议。");
   if (
     typeof reference.tokenId !== "bigint" ||
@@ -345,7 +347,7 @@ class SnapshotReader {
   async read(value: PositionReference): Promise<UnifiedPosition> {
     const ref = validateReference(value);
     await this.requireCode(ref.manager);
-    return ref.protocol === "uniswap-v3" ? this.v3(ref) : this.v4(ref);
+    return ref.protocol === "uniswap-v4" ? this.v4(ref) : this.v3(ref);
   }
 
   finish(
@@ -488,6 +490,12 @@ class SnapshotReader {
       "V3 Pool",
     );
     await this.requireCode(poolAddress);
+    const slotAbi =
+      ref.protocol === "pancakeswap-v3"
+        ? parseAbi([
+            "function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint32 feeProtocol, bool unlocked)",
+          ])
+        : POOL_ABI;
     const pool = {
       address: poolAddress,
       abi: POOL_ABI,
@@ -503,7 +511,7 @@ class SnapshotReader {
       token0,
       token1,
     ] = await Promise.all([
-      this.readGetter({ ...pool, functionName: "slot0" }),
+      this.readGetter({ ...pool, abi: slotAbi, functionName: "slot0" }),
       this.readGetter({ ...pool, functionName: "tickSpacing" }),
       this.readGetter({ ...pool, functionName: "token0" }),
       this.readGetter({ ...pool, functionName: "token1" }),

@@ -18,7 +18,11 @@ import {
   type SimulationPosition,
 } from "./lpSimulation";
 
-export type SimulationProtocol = "uniswap-v3" | "uniswap-v4" | "aerodrome";
+export type SimulationProtocol =
+  | "uniswap-v3"
+  | "uniswap-v4"
+  | "aerodrome"
+  | "pancakeswap-v3";
 export interface SimulationImport {
   chainId: number;
   rpcUrl: string;

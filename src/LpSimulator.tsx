@@ -1,3 +1,15 @@
+import { Star, X } from "lucide-react";
+import {
+  PREFERENCES_KEY,
+  FAVORITES_KEY,
+  parsePreferences,
+  parseFavorites,
+  rememberImport,
+  savedImport,
+  importFavorite,
+  favoriteKey,
+  type Favorite,
+} from "./lpPreferences";
 import { useI18n, getLocale } from "./useI18n";
 import LpPriceSlider from "./LpPriceSlider";
 import LpValueChart from "./LpValueChart";
@@ -46,20 +58,59 @@ const num = (v: number, d = 2) =>
 const signed = (v: number) => (v > 0 ? "+" : "") + num(v);
 export default function LpSimulator({
   toolbarRoot,
+  favoritesRoot,
   active,
 }: {
   toolbarRoot: HTMLElement | null;
+  favoritesRoot: HTMLElement | null;
   active: boolean;
 }) {
   const { t, locale } = useI18n();
-  const [form, setForm] = useState<SimulationImport>({
-    chainId: 8453,
-    rpcUrl: "https://mainnet.base.org",
-    protocol: "aerodrome",
-    ...simulationDeployment(8453, "aerodrome"),
-    tokenId: "",
+  const [initialPreferences] = useState(() => {
+    try {
+      return parsePreferences(localStorage.getItem(PREFERENCES_KEY));
+    } catch {
+      return parsePreferences(null);
+    }
   });
-  const [customNetwork, setCustomNetwork] = useState(false);
+  const preferences = useRef(initialPreferences);
+  const [form, setForm] = useState<SimulationImport>(initialPreferences.draft);
+  const [customNetwork, setCustomNetwork] = useState(
+    () =>
+      !simulationNetworks.some(
+        (n) => n.id === initialPreferences.draft.chainId,
+      ),
+  );
+  const [favorites, setFavorites] = useState<Favorite[]>(() => {
+    try {
+      return parseFavorites(localStorage.getItem(FAVORITES_KEY));
+    } catch {
+      return [];
+    }
+  });
+  const [storageError, setStorageError] = useState(false);
+  const [favoritesOpen, setFavoritesOpen] = useState(false);
+  useEffect(() => {
+    preferences.current = rememberImport(preferences.current, form);
+    try {
+      localStorage.setItem(
+        PREFERENCES_KEY,
+        JSON.stringify(preferences.current),
+      );
+      setStorageError(false);
+    } catch {
+      setStorageError(true);
+    }
+  }, [form]);
+  function updateFavorites(next: Favorite[]) {
+    setFavorites(next);
+    try {
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+      setStorageError(false);
+    } catch {
+      setStorageError(true);
+    }
+  }
   const [position, setPosition] = useState<SimulationPosition | null>(null);
   const [loadedSource, setLoadedSource] = useState("");
   const [reverse, setReverse] = useState(false);
@@ -142,12 +193,12 @@ export default function LpSimulator({
         setHistoryStatus("历史读取失败：" + rpcErrorMessage(e));
     }
   }
-  async function load() {
+  async function load(source: SimulationImport = form) {
     const id = ++request.current;
     setLoading(true);
     setError("");
     try {
-      const p = await importSimulationPosition({ ...form });
+      const p = await importSimulationPosition({ ...source });
       if (id !== request.current) return;
       const samePosition =
         position?.chainId === p.chainId &&
@@ -159,11 +210,11 @@ export default function LpSimulator({
           p.token0.symbol.toUpperCase() === "USDT";
       const m = simulationModel(p, rev);
       setPosition(p);
-      setLoadedSource(sourceKey(form));
+      setLoadedSource(sourceKey(source));
       setReverse(rev);
       setTarget(m.price);
       if (!samePosition) restoreRecord(p, rev);
-      void fetchHistory(p, rev, { ...form }, id);
+      void fetchHistory(p, rev, { ...source }, id);
     } catch (e) {
       if (id === request.current) setError(rpcErrorMessage(e));
     } finally {
@@ -190,6 +241,29 @@ export default function LpSimulator({
       )
     : 2;
   const stale = position && loadedSource !== sourceKey(form);
+  const currentFavorite: Favorite | null =
+    position && !stale
+      ? {
+          chainId: position.chainId,
+          protocol: form.protocol,
+          manager: position.manager,
+          tokenId: position.tokenId,
+          stateView: form.stateView,
+          pair: model
+            ? `${model.base.symbol} / ${model.quote.symbol}`
+            : `${position.token0.symbol} / ${position.token1.symbol}`,
+        }
+      : null;
+  const isFavorite =
+    currentFavorite &&
+    favorites.some((f) => favoriteKey(f) === favoriteKey(currentFavorite));
+  function openFavorite(favorite: Favorite) {
+    const source = importFavorite(favorite, preferences.current);
+    edit(source);
+    setCustomNetwork(!simulationNetworks.some((n) => n.id === source.chainId));
+    void load(source);
+  }
+
   const stats =
     model && current
       ? [
@@ -277,16 +351,17 @@ export default function LpSimulator({
                   });
                   return;
                 }
-                const network = simulationNetworks.find((n) => n.id === id)!;
                 const protocol =
                   form.protocol === "aerodrome" && id !== 8453
                     ? "uniswap-v3"
                     : form.protocol;
                 edit({
-                  chainId: id,
-                  rpcUrl: network.rpc,
-                  protocol,
-                  ...simulationDeployment(id, protocol),
+                  ...savedImport(
+                    preferences.current,
+                    id,
+                    protocol,
+                    form.tokenId,
+                  ),
                 });
               }}
             />
@@ -306,11 +381,12 @@ export default function LpSimulator({
                       onChange={(v) => {
                         setCustomNetwork(true);
                         edit({
-                          chainId: v ?? 0,
-                          rpcUrl:
-                            simulationNetworks.find((n) => n.id === v)?.rpc ??
-                            "",
-                          ...simulationDeployment(v ?? 0, form.protocol),
+                          ...savedImport(
+                            preferences.current,
+                            v ?? 0,
+                            form.protocol,
+                            form.tokenId,
+                          ),
                         });
                       }}
                     />
@@ -333,6 +409,81 @@ export default function LpSimulator({
           toolbarRoot,
         )}
 
+      {favoritesRoot &&
+        active &&
+        createPortal(
+          <Popover
+            trigger="click"
+            placement="bottomLeft"
+            title={t("收藏仓位")}
+            open={favoritesOpen}
+            onOpenChange={setFavoritesOpen}
+            content={
+              <div className="lp-favorites">
+                {favorites.length === 0 && (
+                  <span className="lp-favorites-empty">{t("暂无收藏")}</span>
+                )}
+                {favorites.map((favorite) => (
+                  <div className="lp-favorite" key={favoriteKey(favorite)}>
+                    <button
+                      type="button"
+                      className="lp-favorite-open"
+                      onClick={() => {
+                        setFavoritesOpen(false);
+                        openFavorite(favorite);
+                      }}
+                      aria-label={t(
+                        "读取收藏 {0}",
+                        favorite.pair + " #" + favorite.tokenId,
+                      )}
+                    >
+                      <strong>{favorite.pair}</strong>
+                      <span>
+                        {simulationNetworks.find(
+                          (n) => n.id === favorite.chainId,
+                        )?.name ?? favorite.chainId}{" "}
+                        · #{favorite.tokenId}
+                      </span>
+                      <span>
+                        {favorite.protocol === "pancakeswap-v3"
+                          ? "PancakeSwap V3"
+                          : favorite.protocol === "aerodrome"
+                            ? "Aerodrome / Slipstream"
+                            : favorite.protocol === "uniswap-v4"
+                              ? "Uniswap V4"
+                              : "Uniswap V3"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="lp-favorite-remove"
+                      aria-label={t(
+                        "取消收藏 {0}",
+                        favorite.pair + " #" + favorite.tokenId,
+                      )}
+                      onClick={() =>
+                        updateFavorites(
+                          favorites.filter(
+                            (f) => favoriteKey(f) !== favoriteKey(favorite),
+                          ),
+                        )
+                      }
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            }
+          >
+            <Button icon={<Star size={15} />} aria-expanded={favoritesOpen}>
+              {t("收藏仓位")}
+              {favorites.length > 0 ? ` (${favorites.length})` : ""}
+            </Button>
+          </Popover>,
+          favoritesRoot,
+        )}
+
       <div
         className={`layout ${model ? "lp-import-ready" : "lp-import-empty"}`}
       >
@@ -347,13 +498,18 @@ export default function LpSimulator({
               value={form.protocol}
               options={[
                 { label: "Uniswap V3", value: "uniswap-v3" },
+                { label: "PancakeSwap V3", value: "pancakeswap-v3" },
                 { label: "Uniswap V4", value: "uniswap-v4" },
                 { label: "Aerodrome / Slipstream", value: "aerodrome" },
               ]}
               onChange={(protocol: SimulationProtocol) =>
                 edit({
-                  protocol,
-                  ...simulationDeployment(form.chainId, protocol),
+                  ...savedImport(
+                    preferences.current,
+                    form.chainId,
+                    protocol,
+                    form.tokenId,
+                  ),
                 })
               }
             />
@@ -396,6 +552,33 @@ export default function LpSimulator({
           >
             {t("读取仓位")}
           </Button>
+          {currentFavorite && (
+            <Button
+              className="lp-favorite-toggle"
+              block
+              aria-pressed={Boolean(isFavorite)}
+              icon={
+                <Star size={15} fill={isFavorite ? "currentColor" : "none"} />
+              }
+              onClick={() =>
+                updateFavorites(
+                  isFavorite
+                    ? favorites.filter(
+                        (f) => favoriteKey(f) !== favoriteKey(currentFavorite),
+                      )
+                    : [...favorites, currentFavorite],
+                )
+              }
+            >
+              {isFavorite ? t("已收藏") : t("收藏此仓位")}
+            </Button>
+          )}
+          {storageError && (
+            <Alert
+              type="warning"
+              title={t("浏览器未能保存配置或收藏，当前会话仍可使用。")}
+            />
+          )}
           {!form.manager && (
             <Alert
               type="info"
@@ -732,7 +915,7 @@ export default function LpSimulator({
         </section>
       )}
       {position?.warnings.map((w) => (
-        <Alert key={w} type="warning" title={w} />
+        <Alert key={w} type="warning" title={t(w)} />
       ))}
     </main>
   );

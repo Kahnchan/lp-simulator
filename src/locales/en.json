@@ -225,5 +225,13 @@
   "V4 仓位需要已核验的 StateView 和 PoolManager 部署配置。": "V4 positions require verified StateView and PoolManager deployments.",
   "Position Manager / StateView 的 PoolManager 与部署配置不匹配。": "Position Manager / StateView PoolManager does not match the deployment configuration.",
   "V4 positionInfo 与完整 PoolKey 不匹配。": "V4 positionInfo does not match the full PoolKey.",
-  "区块号不能为负数。": "Block number cannot be negative."
+  "区块号不能为负数。": "Block number cannot be negative.",
+  "V3 待领取记账余额不是实时总手续费，可能包含已移除的本金；领取前会重新模拟。": "V3 owed balances are not live total fees and may include withdrawn principal.",
+  "收藏仓位": "Favorites",
+  "读取收藏 {0}": "Load favorite {0}",
+  "取消收藏 {0}": "Remove favorite {0}",
+  "已收藏": "Saved",
+  "收藏此仓位": "Save to favorites",
+  "浏览器未能保存配置或收藏，当前会话仍可使用。": "Could not save settings or favorites. You can still use them in this session.",
+  "暂无收藏": "No saved positions"
 }

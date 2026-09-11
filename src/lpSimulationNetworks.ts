@@ -37,6 +37,12 @@ export function simulationDeployment(
   chainId: number,
   protocol: SimulationProtocol,
 ) {
+  // https://github.com/pancakeswap/pancake-v3-contracts/blob/main/deployments/bscMainnet.json
+  if (chainId === 56 && protocol === "pancakeswap-v3")
+    return {
+      manager: "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364",
+      stateView: undefined,
+    };
   if (protocol === "uniswap-v3")
     return { manager: v3[chainId] ?? "", stateView: undefined };
   if (chainId === 8453 && protocol === "aerodrome")

@@ -10,7 +10,25 @@ import LpSimulator from "./LpSimulator";
 export default function LpSimulatorProject() {
   const { t, locale, setLocale } = useI18n();
   const [toolbarRoot, setToolbarRoot] = useState<HTMLDivElement | null>(null);
-  const [mode, setMode] = useState("manual");
+  const [favoritesRoot, setFavoritesRoot] = useState<HTMLDivElement | null>(
+    null,
+  );
+  const [mode, setMode] = useState(() => {
+    try {
+      return localStorage.getItem("lp-simulator:mode") === "import"
+        ? "import"
+        : "manual";
+    } catch {
+      return "manual";
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("lp-simulator:mode", mode);
+    } catch {
+      /* Keep mode usable without storage. */
+    }
+  }, [mode]);
   useEffect(() => {
     document.documentElement.lang = locale;
     document.title =
@@ -19,20 +37,23 @@ export default function LpSimulatorProject() {
   return (
     <ConfigProvider locale={locale === "zh-CN" ? zhCN : enUS}>
       <nav className="lp-mode-switch" aria-label={t("模拟模式")}>
-        <div className="lp-mode-tabs" role="group" aria-label={t("模拟模式")}>
-          {[
-            { label: t("手动模拟"), value: "manual" },
-            { label: t("导入 NFT 仓位"), value: "import" },
-          ].map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              aria-pressed={mode === item.value}
-              onClick={() => setMode(item.value)}
-            >
-              {item.label}
-            </button>
-          ))}
+        <div className="lp-toolbar-left">
+          <div className="lp-mode-tabs" role="group" aria-label={t("模拟模式")}>
+            {[
+              { label: t("手动模拟"), value: "manual" },
+              { label: t("导入 NFT 仓位"), value: "import" },
+            ].map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                aria-pressed={mode === item.value}
+                onClick={() => setMode(item.value)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="lp-favorites-toolbar" ref={setFavoritesRoot} />
         </div>
         <div className="lp-toolbar-right">
           <div className="lp-network-toolbar" ref={setToolbarRoot} />
@@ -53,7 +74,11 @@ export default function LpSimulatorProject() {
         <ManualLpSimulator />
       </div>
       <div hidden={mode !== "import"}>
-        <LpSimulator toolbarRoot={toolbarRoot} active={mode === "import"} />
+        <LpSimulator
+          toolbarRoot={toolbarRoot}
+          favoritesRoot={favoritesRoot}
+          active={mode === "import"}
+        />
       </div>
     </ConfigProvider>
   );

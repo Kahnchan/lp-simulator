@@ -301,3 +301,87 @@ html[lang="en-US"] .quick .ant-btn {
     width: 140px;
   }
 }
+
+.lp-favorites {
+  margin: 0;
+  width: min(320px, calc(100vw - 64px));
+  max-height: 360px;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+}
+.lp-favorites-empty {
+  color: #999;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+.lp-favorite {
+  display: flex;
+  align-items: center;
+  border: 1px solid #303030;
+  border-radius: var(--lp-radius-control);
+  background: #202020;
+}
+.lp-favorite-open {
+  flex: 1;
+  min-width: 0;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  border: 0;
+  border-radius: inherit;
+  color: #eee;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+.lp-favorite-open strong {
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.lp-favorite-open span {
+  color: #929292;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.lp-favorite-open:hover {
+  background: #292929;
+}
+.lp-favorite-remove {
+  padding: 8px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: var(--lp-radius-small);
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  display: flex;
+}
+.lp-favorite-remove:hover {
+  color: #eee;
+  background: #303030;
+}
+.lp-favorite-open:focus-visible,
+.lp-favorite-remove:focus-visible {
+  outline: 2px solid #7897ff;
+  outline-offset: 2px;
+}
+.lp-favorite-toggle {
+  margin-top: 10px;
+}
+.lp-favorite-toggle[aria-pressed="true"] {
+  color: #dec38e;
+}
+
+.lp-toolbar-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.lp-favorites-toolbar:empty {
+  display: none;
+}

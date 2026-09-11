@@ -158,3 +158,84 @@ test("latest deposit excludes mint itself but preserves later events at the same
   const later = { ...first, block: "101", transaction: "0xdef" };
   assert.equal(additionalDeposit(first, later), later);
 });
+
+test("PancakeSwap BSC preset uses its own NFT manager and clears unsupported chains", async () => {
+  const { simulationDeployment } = await import("./lpSimulationNetworks");
+  assert.equal(
+    simulationDeployment(56, "pancakeswap-v3").manager,
+    "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364",
+  );
+  assert.notEqual(
+    simulationDeployment(56, "pancakeswap-v3").manager,
+    simulationDeployment(56, "uniswap-v3").manager,
+  );
+  assert.equal(simulationDeployment(8453, "pancakeswap-v3").manager, "");
+});
+
+test("saved settings restore per-network RPCs and per-protocol contracts", async () => {
+  const { parsePreferences, rememberImport, savedImport } = await import(
+    "./lpPreferences"
+  );
+  let prefs = parsePreferences(null);
+  const base = {
+    ...prefs.draft,
+    rpcUrl: "https://example.com/base",
+    manager: "0x1111111111111111111111111111111111111111",
+    tokenId: "123",
+  };
+  prefs = rememberImport(prefs, base);
+  const bsc = {
+    ...savedImport(prefs, 56, "pancakeswap-v3"),
+    rpcUrl: "https://example.com/bsc",
+    tokenId: "7413206",
+  };
+  prefs = parsePreferences(JSON.stringify(rememberImport(prefs, bsc)));
+  assert.equal(prefs.draft.tokenId, "7413206");
+  assert.equal(savedImport(prefs, 8453, "aerodrome").rpcUrl, base.rpcUrl);
+  assert.equal(savedImport(prefs, 8453, "aerodrome").manager, base.manager);
+  assert.equal(savedImport(prefs, 56, "pancakeswap-v3").rpcUrl, bsc.rpcUrl);
+  assert.equal(parsePreferences("broken").draft.chainId, 8453);
+});
+
+test("favorites deduplicate NFT identity, isolate chains and reuse the latest saved RPC", async () => {
+  const {
+    parseFavorites,
+    favoriteKey,
+    importFavorite,
+    parsePreferences,
+    rememberImport,
+  } = await import("./lpPreferences");
+  const favorite = {
+    chainId: 56,
+    protocol: "pancakeswap-v3" as const,
+    manager: "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364",
+    tokenId: "7413206",
+    pair: "牛来 / USDT",
+  };
+  const values = parseFavorites(
+    JSON.stringify([
+      favorite,
+      {
+        ...favorite,
+        manager: favorite.manager.toLowerCase(),
+        tokenId: "07413206",
+      },
+      { ...favorite, chainId: 1 },
+      { ...favorite, tokenId: "bad" },
+    ]),
+  );
+  assert.equal(values.length, 2);
+  assert.notEqual(favoriteKey(values[0]), favoriteKey(values[1]));
+  let prefs = parsePreferences(null);
+  prefs = rememberImport(prefs, {
+    ...favorite,
+    rpcUrl: "https://example.com/new-rpc",
+  });
+  assert.equal(
+    importFavorite(values[0], prefs).rpcUrl,
+    "https://example.com/new-rpc",
+  );
+  assert.equal(importFavorite(values[0], prefs).tokenId, "7413206");
+  assert.deepEqual(parseFavorites('{"bad":1}'), []);
+  assert.deepEqual(parseFavorites("broken"), []);
+});

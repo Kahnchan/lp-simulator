@@ -39,7 +39,7 @@ const GETTER_TEST_ABI = parseAbi([
   "function factory() view returns (address)",
   "function positions(uint256 tokenId) view returns (uint96 nonce, address operator, address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128, uint128 tokensOwed0, uint128 tokensOwed1)",
   "function getPool(address token0,address token1,uint24 fee) view returns (address)",
-  "function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16 observationIndex,uint16 observationCardinality,uint16 observationCardinalityNext,uint8 feeProtocol,bool unlocked)",
+  "function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16 observationIndex,uint16 observationCardinality,uint16 observationCardinalityNext,uint32 feeProtocol,bool unlocked)",
   "function tickSpacing() view returns (int24)",
   "function token0() view returns (address)",
   "function token1() view returns (address)",
@@ -162,6 +162,7 @@ function fakeReader(
     token0Decimals?: number;
     liquidity?: bigint;
     tick?: number;
+    feeProtocol?: number;
     multicall?: "supported" | "revert" | "malformed" | "partial" | "rate-limit";
   } = {},
 ) {
@@ -256,7 +257,15 @@ function fakeReader(
       case "getPool":
         return POOL;
       case "slot0":
-        return [Q96, options.tick ?? 0, 0, 1, 1, 0, true];
+        return [
+          Q96,
+          options.tick ?? 0,
+          0,
+          1,
+          1,
+          options.feeProtocol ?? 0,
+          true,
+        ];
       case "token0":
         return options.poolToken0 ?? TOKEN0;
       case "token1":
@@ -748,4 +757,30 @@ test("metadata cache TTL, capacity, reset and rejected in-flight loads are bound
   });
   await beforeReset;
   assert.equal((await cache.read("a", load)).decimals, afterReset.decimals);
+});
+
+test("PancakeSwap V3 reads principal with a uint32 protocol fee and validates pool identity", async () => {
+  for (const multicall of [undefined, "supported"] as const) {
+    const { client } = fakeReader({
+      chainId: 56,
+      feeProtocol: 209718400,
+      multicall,
+    });
+    const result = await readPositionsWithClient(client, {
+      chainId: 56,
+      positions: [{ ...v3Ref, protocol: "pancakeswap-v3" }],
+    });
+    assert.deepEqual(result.failures, []);
+    assert.equal(result.positions[0].protocol, "pancakeswap-v3");
+    assert.equal(result.positions[0].sqrtPriceX96, Q96);
+    assert.ok(result.positions[0].amount0Raw > 0n);
+    assert.ok(result.positions[0].amount1Raw > 0n);
+  }
+  const { client } = fakeReader({ chainId: 56, poolToken0: account(99) });
+  const invalid = await readPositionsWithClient(client, {
+    chainId: 56,
+    positions: [{ ...v3Ref, protocol: "pancakeswap-v3" }],
+  });
+  assert.equal(invalid.positions.length, 0);
+  assert.equal(invalid.failures.length, 1);
 });
