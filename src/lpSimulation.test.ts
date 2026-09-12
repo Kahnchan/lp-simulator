@@ -239,3 +239,82 @@ test("favorites deduplicate NFT identity, isolate chains and reuse the latest sa
   assert.deepEqual(parseFavorites('{"bad":1}'), []);
   assert.deepEqual(parseFavorites("broken"), []);
 });
+
+import { createPositionCache } from "./lpPositionCache";
+
+test("position snapshots share preloads, expire, and permit explicit refresh", async () => {
+  let time = 0;
+  let calls = 0;
+  const source = {
+    chainId: 8453,
+    protocol: "aerodrome" as const,
+    manager: p.manager,
+    tokenId: p.tokenId,
+    rpcUrl: "https://mainnet.base.org",
+  };
+  const cache = createPositionCache(
+    async () => {
+      calls++;
+      return p;
+    },
+    () => time,
+  );
+  const preload = cache.load(source);
+  assert.equal(cache.load(source), preload);
+  assert.equal(await preload, p);
+  await cache.load(source);
+  assert.equal(calls, 1);
+  time = 30_000;
+  await cache.load(source);
+  assert.equal(calls, 2);
+  await cache.load(source, true);
+  assert.equal(calls, 3);
+  await cache.load({ ...source, rpcUrl: "https://another.example" });
+  assert.equal(calls, 4);
+});
+
+test("failed position preloads can be retried", async () => {
+  let calls = 0;
+  const cache = createPositionCache(async () => {
+    if (++calls === 1) throw new Error("offline");
+    return p;
+  });
+  const source = {
+    chainId: 8453,
+    protocol: "aerodrome" as const,
+    manager: p.manager,
+    tokenId: p.tokenId,
+    rpcUrl: "https://mainnet.base.org",
+  };
+  await assert.rejects(cache.load(source), /offline/);
+  assert.equal(await cache.load(source), p);
+  assert.equal(calls, 2);
+});
+
+test("parallel history windows preserve newest-event ordering and do not skip failed windows", async () => {
+  const { newestMatchingBatch } = await import("./lpSimulationHistory");
+  const ok = (value: number[]): PromiseFulfilledResult<number[]> => ({
+    status: "fulfilled",
+    value,
+  });
+  const failed: PromiseRejectedResult = {
+    status: "rejected",
+    reason: new Error("RPC failed"),
+  };
+  assert.deepEqual(
+    newestMatchingBatch([ok([]), ok([5]), ok([3])], (n) => n > 0),
+    [5],
+  );
+  assert.throws(
+    () => newestMatchingBatch([failed, ok([3])], (n) => n > 0),
+    /RPC failed/,
+  );
+  assert.deepEqual(
+    newestMatchingBatch([ok([5]), failed], (n) => n > 0),
+    [5],
+  );
+  assert.deepEqual(
+    newestMatchingBatch([ok([]), ok([])], (n) => n > 0),
+    [],
+  );
+});

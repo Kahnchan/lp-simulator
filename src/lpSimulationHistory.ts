@@ -15,7 +15,7 @@ import {
   importSimulationPosition,
   type SimulationImport,
 } from "./lpSimulationRead";
-import { simulationModel } from "./lpSimulation";
+import { simulationModel, type SimulationPosition } from "./lpSimulation";
 
 export interface HistoryPoint {
   block: string;
@@ -64,12 +64,30 @@ export async function firstExistingBlock(
   }
   return low;
 }
+// Never accept an older event if a newer window could not be read.
+export function newestMatchingBatch<T>(
+  batches: PromiseSettledResult<T[]>[],
+  matches: (item: T) => boolean,
+): T[] {
+  for (const batch of batches) {
+    if (batch.status === "rejected") throw batch.reason;
+    if (batch.value.some(matches)) return batch.value;
+  }
+  return [];
+}
+
+const creationBlocks = new Map<string, bigint>();
+
 export async function readEntryHistory(
   input: SimulationImport,
   currentBlock: bigint,
   reverse: boolean,
   progress: (s: string) => void,
   active: () => boolean,
+  options: {
+    snapshot?: SimulationPosition;
+    onFirst?: (point: HistoryPoint) => void;
+  } = {},
 ): Promise<EntryHistory> {
   const client = createPublicClient({
     transport: readRpcTransport(validateRpcUrl(input.rpcUrl), {
@@ -117,9 +135,17 @@ export async function readEntryHistory(
         throw e;
       }
     });
+  const creationKey = JSON.stringify([
+    input.chainId,
+    input.rpcUrl,
+    manager,
+    String(tokenId),
+  ]);
   let minted: bigint;
   try {
-    minted = await locate();
+    const cached = creationBlocks.get(creationKey);
+    minted =
+      cached !== undefined && cached <= currentBlock ? cached : await locate();
   } catch (e) {
     if (input.chainId !== 8453) throw e;
     check();
@@ -156,6 +182,10 @@ export async function readEntryHistory(
   const mint = transfers[0];
   if (!mint?.transactionHash)
     throw new Error("未验证到 NFT 创建事件，无法确定首次入场来源。");
+  creationBlocks.set(creationKey, minted);
+  while (creationBlocks.size > 50)
+    creationBlocks.delete(creationBlocks.keys().next().value!);
+  let snapshotPromise: Promise<SimulationPosition> | undefined;
   const point = async (
     block: bigint,
     transaction: string,
@@ -183,7 +213,12 @@ export async function readEntryHistory(
         deposit.args.amount1 &&
         deposit.args.liquidity
       ) {
-        const snapshot = await importSimulationPosition(input, currentBlock);
+        const snapshot =
+          options.snapshot ??
+          (await (snapshotPromise ??= importSimulationPosition(
+            input,
+            currentBlock,
+          )));
         const raw =
           (Math.sqrt(1.0001 ** snapshot.tickLower) +
             Number(deposit.args.amount1) / Number(deposit.args.liquidity)) **
@@ -215,25 +250,43 @@ export async function readEntryHistory(
   };
   progress("正在读取首次入场区块价格…");
   const first = await point(minted, mint.transactionHash);
+  check();
+  options.onFirst?.(first);
   if (input.protocol === "uniswap-v4")
     return { first, warning: "V4 目前仅定位首次创建；最近加仓事件尚未解析。" };
   progress("正在查找最近一次加仓…");
   let end = currentBlock;
   let size = 50000n;
   try {
-    for (let attempt = 0; attempt < 80 && end >= minted; attempt++) {
+    for (let attempt = 0; attempt < 80 && end >= minted; attempt += 3) {
       check();
-      const start = end - minted + 1n > size ? end - size + 1n : minted;
       try {
-        const logs = await client.getLogs({
-          address: manager,
-          event: parseAbiItem(
-            "event IncreaseLiquidity(uint256 indexed tokenId,uint128 liquidity,uint256 amount0,uint256 amount1)",
+        // Scan three adjacent windows together, but inspect newest first.
+        const windows = [];
+        let cursor = end;
+        for (let i = 0; i < 3 && cursor >= minted; i++) {
+          const from =
+            cursor - minted + 1n > size ? cursor - size + 1n : minted;
+          windows.push({ fromBlock: from, toBlock: cursor });
+          cursor = from - 1n;
+        }
+        const batches = await Promise.allSettled(
+          windows.map((window) =>
+            client.getLogs({
+              address: manager,
+              event: parseAbiItem(
+                "event IncreaseLiquidity(uint256 indexed tokenId,uint128 liquidity,uint256 amount0,uint256 amount1)",
+              ),
+              args: { tokenId },
+              ...window,
+            }),
           ),
-          args: { tokenId },
-          fromBlock: start,
-          toBlock: end,
-        });
+        );
+        check();
+        const logs = newestMatchingBatch(
+          batches,
+          (log) => !!log.args.liquidity && log.args.liquidity > 0n,
+        );
         const last = logs
           .filter((l) => l.args.liquidity && l.args.liquidity > 0n)
           .sort(
@@ -241,7 +294,13 @@ export async function readEntryHistory(
               Number(b.blockNumber! - a.blockNumber!) ||
               b.logIndex! - a.logIndex!,
           )[0];
-        if (last?.blockNumber != null && last.transactionHash)
+        if (last?.blockNumber != null && last.transactionHash) {
+          if (
+            String(last.blockNumber) === first.block &&
+            last.transactionHash === first.transaction &&
+            last.logIndex === first.logIndex
+          )
+            return { first };
           return {
             first,
             latest: additionalDeposit(
@@ -253,8 +312,9 @@ export async function readEntryHistory(
               ),
             ),
           };
-        if (start === minted) break;
-        end = start - 1n;
+        }
+        if (cursor < minted) return { first };
+        end = cursor;
       } catch (e) {
         if (size <= 1000n || isRpcHistoricalStateUnavailable(e)) throw e;
         size /= 2n;

@@ -40,18 +40,88 @@
   outline: 2px solid #7897ff;
   outline-offset: 2px;
 }
+/* Keep the full panel clickable, with space for the handle at either endpoint. */
 .lp-price-control .ant-slider {
-  margin: 15px 8px 8px;
-  padding-block: 8px;
-  height: 22px;
+  margin: 14px 0 10px;
+  padding: 0;
+  height: 48px;
+  border: 1px solid #343434;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    #1c1c1c 0 var(--lp-range-start),
+    rgb(183 137 238 / 18%) var(--lp-range-start) var(--lp-range-end),
+    #1c1c1c var(--lp-range-end) 100%
+  );
 }
-.lp-price-control .ant-slider-rail,
-.lp-price-control .ant-slider-track {
-  height: 6px;
-  border-radius: var(--lp-radius-small);
+.lp-price-control .ant-slider::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: radial-gradient(circle, #666666 1px, transparent 1.2px);
+  background-size: 18px 18px;
+  background-position: center;
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 1;
 }
-.lp-price-control .ant-slider-handle::after {
-  box-shadow: 0 0 0 2px #7897ff;
+.lp-price-control .ant-slider .ant-slider-rail,
+.lp-price-control .ant-slider .ant-slider-track {
+  top: 0;
+  height: 100%;
+  border-radius: inherit;
+}
+.lp-price-control .ant-slider .ant-slider-rail,
+.lp-price-control .ant-slider:hover .ant-slider-rail,
+.lp-price-control .ant-slider .ant-slider-track,
+.lp-price-control .ant-slider:hover .ant-slider-track {
+  background: transparent;
+}
+.lp-price-control .ant-slider .ant-slider-handle {
+  top: 0;
+  width: 16px;
+  height: 100%;
+  margin: 0;
+  z-index: 2;
+}
+.lp-price-control .ant-slider .ant-slider-handle::before {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.lp-price-control .ant-slider .ant-slider-handle::after,
+.lp-price-control
+  .ant-slider
+  .ant-slider-handle:not(.ant-slider-handle-disabled):is(
+    :hover,
+    :focus,
+    :active
+  )::after,
+.lp-price-control .ant-slider .ant-slider-handle-dragging::after {
+  inset: 0 auto auto 5px;
+  inset-inline-start: 5px;
+  inset-block-start: 0;
+  transform: none;
+  transition: background-color 120ms ease;
+  width: 6px;
+  height: 100%;
+  border-radius: 3px;
+  background: #d1a5ff;
+  box-shadow: 0 0 0 2px #29212f;
+}
+.lp-price-control
+  .ant-slider
+  .ant-slider-handle:not(.ant-slider-handle-disabled):hover::after,
+.lp-price-control
+  .ant-slider
+  .ant-slider-handle:not(.ant-slider-handle-disabled):active::after {
+  background: #e4c9ff;
+  box-shadow: 0 0 0 2px #29212f;
+}
+.lp-price-control .ant-slider .ant-slider-handle:focus-visible::after {
+  outline: 2px solid #e4c9ff;
+  outline-offset: 3px;
 }
 .lp-price-endpoints {
   color: #808080;
@@ -59,7 +129,20 @@
   font-variant-numeric: tabular-nums;
   padding-inline: 4px;
 }
-.lp-price-control .ant-slider-handle {
-  top: 50%;
-  margin-top: -7px;
+
+.lp-price-control select {
+  height: 30px;
+  border: 1px solid #343434;
+  border-radius: var(--lp-radius-small);
+  padding: 0 8px;
+  background: #202020;
+  color: #ccc;
+  font: inherit;
+  font-size: 12px;
+}
+.lp-price-scale {
+  flex-wrap: wrap;
+}
+.lp-price-nudge {
+  align-items: center;
 }

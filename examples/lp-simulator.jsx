@@ -338,13 +338,13 @@ export default function ManualLpSimulator() {
                     </div>
                     <div>
                       <span>{t("相对投入本金")}</span>
-                      <strong>{signed(current.returnPct)}%</strong>
-                      <small>{signed(current.pnl)} USDC</small>
+                      <strong>{signed(current.pnl)} USDC</strong>
+                      <small>{signed(current.returnPct)}%</small>
                     </div>
                     <div>
                       <span>{t("相对持币不动 / 无常损失")}</span>
-                      <strong>{signed(current.ilPct)}%</strong>
-                      <small>{signed(current.il)} USDC</small>
+                      <strong>{signed(current.il)} USDC</strong>
+                      <small>{signed(current.ilPct)}%</small>
                       <div className="metric-detail">
                         {t("持币价值")} {number(current.hold)} USDC
                       </div>

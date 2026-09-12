@@ -233,5 +233,11 @@
   "已收藏": "Saved",
   "收藏此仓位": "Save to favorites",
   "浏览器未能保存配置或收藏，当前会话仍可使用。": "Could not save settings or favorites. You can still use them in this session.",
-  "暂无收藏": "No saved positions"
+  "暂无收藏": "No saved positions",
+  "精细范围": "Fine range",
+  "微调精度": "Adjustment step",
+  "价格降低 {0}%": "Decrease price by {0}%",
+  "价格提高 {0}%": "Increase price by {0}%",
+  "放大价格范围": "Zoom in on price range",
+  "缩小价格范围": "Zoom out of price range"
 }

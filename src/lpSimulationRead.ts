@@ -60,19 +60,29 @@ export async function importSimulationPosition(
     }),
     cacheTime: 0,
   });
-  assertChainId(input.chainId, await client.getChainId());
-  const blockNumber = historicalBlock ?? (await client.getBlockNumber());
-  const owner = await client.readContract({
-    address: manager,
-    abi: V3_POSITION_ABI,
-    functionName: "ownerOf",
-    args: [tokenId],
-    blockNumber,
-  });
+  const [chainId, blockNumber] = await Promise.all([
+    client.getChainId(),
+    historicalBlock === undefined
+      ? client.getBlockNumber()
+      : Promise.resolve(historicalBlock),
+  ]);
+  assertChainId(input.chainId, chainId);
+  const [owner, block] = await Promise.all([
+    client.readContract({
+      address: manager,
+      abi: V3_POSITION_ABI,
+      functionName: "ownerOf",
+      args: [tokenId],
+      blockNumber,
+    }),
+    client.getBlock({ blockNumber }),
+  ]);
   let data: Omit<SimulationPosition, "blockTime">;
   if (input.protocol !== "aerodrome") {
     const result = await readPositionsWithClient(client, {
       chainId: input.chainId,
+      rpcUrl: input.rpcUrl,
+      cacheMode: historicalBlock === undefined ? "observe" : "fresh",
       blockNumber,
       positions: [
         {
@@ -171,20 +181,22 @@ export async function importSimulationPosition(
     )
       throw new Error("NFT 与池子参数不匹配。");
     const token = async (address: Address) => {
-      const decimals = await client.readContract({
-        address,
-        abi: tokenAbi,
-        functionName: "decimals",
-        blockNumber,
-      });
-      const symbol = await client
-        .readContract({
+      const [decimals, symbol] = await Promise.all([
+        client.readContract({
           address,
           abi: tokenAbi,
-          functionName: "symbol",
+          functionName: "decimals",
           blockNumber,
-        })
-        .catch(() => address.slice(0, 8));
+        }),
+        client
+          .readContract({
+            address,
+            abi: tokenAbi,
+            functionName: "symbol",
+            blockNumber,
+          })
+          .catch(() => address.slice(0, 8)),
+      ]);
       return { address, decimals, symbol };
     };
     const [token0, token1] = await Promise.all([token(t0), token(t1)]);
@@ -205,7 +217,6 @@ export async function importSimulationPosition(
       warnings: [],
     };
   }
-  const block = await client.getBlock({ blockNumber });
   return {
     ...data,
     blockTime: new Date(Number(block.timestamp) * 1000).toISOString(),

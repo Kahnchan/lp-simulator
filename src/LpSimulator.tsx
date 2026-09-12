@@ -1,3 +1,4 @@
+import { createPositionCache, positionSourceKey } from "./lpPositionCache";
 import { Star, X } from "lucide-react";
 import {
   PREFERENCES_KEY,
@@ -44,15 +45,9 @@ import { rpcErrorMessage } from "./rpcErrors";
 import "../examples/lp-simulator.css";
 import "./lpSimulator.css";
 
-const sourceKey = (v: SimulationImport) =>
-  JSON.stringify([
-    v.chainId,
-    v.protocol,
-    v.manager.toLowerCase(),
-    v.tokenId.trim(),
-    v.rpcUrl,
-    v.stateView?.toLowerCase(),
-  ]);
+const sourceKey = positionSourceKey;
+const positionCache = createPositionCache(importSimulationPosition);
+const historyCache = new Map<string, EntryHistory>();
 const num = (v: number, d = 2) =>
   v.toLocaleString(getLocale(), { maximumFractionDigits: d });
 const signed = (v: number) => (v > 0 ? "+" : "") + num(v);
@@ -102,6 +97,26 @@ export default function LpSimulator({
       setStorageError(true);
     }
   }, [form]);
+  useEffect(() => {
+    let cancelled = false;
+    const queue = favorites.map((favorite) =>
+      importFavorite(favorite, preferences.current),
+    );
+    const worker = async () => {
+      while (!cancelled && queue.length) {
+        const source = queue.shift()!;
+        try {
+          await positionCache.load(source);
+        } catch {
+          /* Retry on explicit open. */
+        }
+      }
+    };
+    void Promise.all([worker(), worker()]);
+    return () => {
+      cancelled = true;
+    };
+  }, [favorites, form.rpcUrl]);
   function updateFavorites(next: Favorite[]) {
     setFavorites(next);
     try {
@@ -175,15 +190,29 @@ export default function LpSimulator({
     setHistory(null);
     setHistoryStatus("正在读取历史入场记录…");
     try {
-      const result = await readEntryHistory(
-        source,
-        BigInt(p.blockNumber),
-        rev,
-        (status) => {
-          if (id === request.current) setHistoryStatus(status);
-        },
-        () => id === request.current,
-      );
+      const key = `${sourceKey(source)}:${p.blockNumber}:${rev}`;
+      const result =
+        historyCache.get(key) ??
+        (await readEntryHistory(
+          source,
+          BigInt(p.blockNumber),
+          rev,
+          (status) => {
+            if (id === request.current) setHistoryStatus(status);
+          },
+          () => id === request.current,
+          {
+            snapshot: p,
+            onFirst: (first) => {
+              if (id !== request.current) return;
+              setHistory({ first });
+              setEntry((previous) => previous ?? first.price);
+            },
+          },
+        ));
+      historyCache.set(key, result);
+      while (historyCache.size > 30)
+        historyCache.delete(historyCache.keys().next().value!);
       if (id !== request.current) return;
       setHistory(result);
       setHistoryStatus("");
@@ -193,12 +222,12 @@ export default function LpSimulator({
         setHistoryStatus("历史读取失败：" + rpcErrorMessage(e));
     }
   }
-  async function load(source: SimulationImport = form) {
+  async function load(source: SimulationImport = form, fresh = true) {
     const id = ++request.current;
     setLoading(true);
     setError("");
     try {
-      const p = await importSimulationPosition({ ...source });
+      const p = await positionCache.load({ ...source }, fresh);
       if (id !== request.current) return;
       const samePosition =
         position?.chainId === p.chainId &&
@@ -261,7 +290,7 @@ export default function LpSimulator({
     const source = importFavorite(favorite, preferences.current);
     edit(source);
     setCustomNetwork(!simulationNetworks.some((n) => n.id === source.chainId));
-    void load(source);
+    void load(source, false);
   }
 
   const stats =
