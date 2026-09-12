@@ -146,3 +146,18 @@
 .lp-price-nudge {
   align-items: center;
 }
+
+.lp-price-drag-region {
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.lp-price-drag-region:active {
+  cursor: grabbing;
+}
+.lp-price-drag-region .ant-slider {
+  cursor: inherit;
+}
+.lp-price-drag-region .ant-slider-handle {
+  cursor: ew-resize;
+}

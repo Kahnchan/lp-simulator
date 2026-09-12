@@ -3,7 +3,7 @@ import LpPriceSlider from "../src/LpPriceSlider";
 import { lpSimulatorTheme } from "../src/lpSimulatorTheme";
 import LpValueChart from "../src/LpValueChart";
 import React, { useState, useEffect } from "react";
-import { Button, ConfigProvider, InputNumber, Table, Alert } from "antd";
+import { Button, ConfigProvider, InputNumber, Alert } from "antd";
 import { createPosition } from "./lp-simulator-math.mjs";
 import "./lp-simulator.css";
 
@@ -134,97 +134,6 @@ export default function ManualLpSimulator() {
       />
     </label>
   );
-  const rows = valid
-    ? [
-        ...new Set([
-          entry * 0.5,
-          entry * 0.8,
-          entry * 0.9,
-          lower,
-          entry,
-          upper,
-          entry * 1.1,
-          entry * 1.2,
-          entry * 1.5,
-          target,
-        ]),
-      ]
-        .sort((a, b) => a - b)
-        .map((p) => ({ ...model.at(p), key: p }))
-    : [];
-  const tone = (value) =>
-    Math.abs(value) < 1e-8 ? "" : value > 0 ? "scenario-gain" : "scenario-loss";
-  const cols = [
-    {
-      title: t("ETH 价格"),
-      dataIndex: "price",
-      render: (p) => {
-        const label =
-          p === lower
-            ? t("下限")
-            : p === upper
-              ? t("上限")
-              : p === entry
-                ? t("入场")
-                : "";
-        return (
-          <button
-            className="scenario-price"
-            type="button"
-            onClick={() => setTarget(p)}
-            aria-label={t("模拟 ETH 价格 {0}", number(p))}
-            aria-pressed={p === target}
-          >
-            <span>{number(p)}</span>
-            {label && <span className="scenario-tag">{label}</span>}
-            {p === target && (
-              <span className="scenario-current">{t("模拟中")}</span>
-            )}
-          </button>
-        );
-      },
-    },
-    {
-      title: t("币价涨跌"),
-      align: "right",
-      render: (_, r) => (
-        <span className={tone(r.price / entry - 1)}>
-          {signed((r.price / entry - 1) * 100)}%
-        </span>
-      ),
-    },
-    {
-      title: t("LP 价值"),
-      align: "right",
-      dataIndex: "value",
-      render: (n) => <span className="scenario-value">{number(n)}</span>,
-    },
-    {
-      title: t("本金盈亏"),
-      align: "right",
-      render: (_, r) => (
-        <span className={tone(r.pnl)}>
-          {signed(r.pnl)} <small>{signed(r.returnPct)}%</small>
-        </span>
-      ),
-    },
-    {
-      title: t("持币不动"),
-      align: "right",
-      dataIndex: "hold",
-      render: (n) => number(n),
-    },
-    {
-      title: t("相对持币 / IL"),
-      align: "right",
-      render: (_, r) => (
-        <span className={tone(r.il)}>
-          {signed(r.il)}
-          <small>{signed(r.ilPct)}%</small>
-        </span>
-      ),
-    },
-  ];
   return (
     <ConfigProvider theme={lpSimulatorTheme}>
       <main>
@@ -354,6 +263,11 @@ export default function ManualLpSimulator() {
                     key="chart-v2"
                     baseline={capital}
                     quote="USDC"
+                    baseSymbol="ETH"
+                    holdings={(price) => {
+                      const point = model.at(price);
+                      return { base: point.x, quote: point.y };
+                    }}
                     {...{
                       model,
                       entry,
@@ -403,22 +317,6 @@ export default function ManualLpSimulator() {
             )}
           </section>
         </div>
-        {valid && (
-          <section className="panel scenario manual-scenario">
-            <div className="scenario-heading">
-              <h2>{t("价格情景")}</h2>
-              <span>{t("金额 · USDC")}</span>
-            </div>
-            <Table
-              columns={cols}
-              dataSource={rows}
-              pagination={false}
-              size="middle"
-              scroll={{ x: 850 }}
-              rowClassName={(r) => (r.price === target ? "selected" : "")}
-            />
-          </section>
-        )}
       </main>
     </ConfigProvider>
   );

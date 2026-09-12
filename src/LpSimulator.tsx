@@ -16,15 +16,7 @@ import LpPriceSlider from "./LpPriceSlider";
 import LpValueChart from "./LpValueChart";
 import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  Alert,
-  Button,
-  Popover,
-  Input,
-  InputNumber,
-  Select,
-  Table,
-} from "antd";
+import { Alert, Button, Popover, Input, InputNumber, Select } from "antd";
 import {
   importSimulationPosition,
   type SimulationImport,
@@ -311,20 +303,6 @@ export default function LpSimulator({
           ],
         ]
       : [];
-  const samples = model
-    ? [
-        ...new Set([
-          model.price * 0.5,
-          model.lower,
-          model.price,
-          model.upper,
-          model.price * 1.5,
-          ...(validTarget ? [target] : []),
-        ]),
-      ]
-        .sort((a, b) => a - b)
-        .map((p) => ({ ...model.at(p), key: p }))
-    : [];
   const importCardRef = useRef<HTMLElement>(null);
   const previousCardRect = useRef<DOMRect | null>(null);
   const hadModel = useRef(false);
@@ -848,6 +826,8 @@ export default function LpSimulator({
                     lower={model.lower}
                     upper={model.upper}
                     quote={model.quote.symbol}
+                    baseSymbol={model.base.symbol}
+                    holdings={(price) => model.at(price)}
                     min={min}
                     max={max}
                     target={target!}
@@ -894,55 +874,6 @@ export default function LpSimulator({
           )}
         </section>
       </div>
-      {model && (
-        <section className="panel scenario">
-          <h2>
-            <span>{t("不同价格下的结果")}</span>
-          </h2>
-          <Table
-            pagination={false}
-            dataSource={samples}
-            rowKey="key"
-            scroll={{ x: 650 }}
-            columns={[
-              {
-                title: t(
-                  "价格（{0}/{1}）",
-                  model.quote.symbol,
-                  model.base.symbol,
-                ),
-                dataIndex: "price",
-                render: (v: number) => (
-                  <Button type="text" onClick={() => setTarget(v)}>
-                    {num(v, 8)}
-                  </Button>
-                ),
-              },
-              {
-                title: t("LP 价值"),
-                dataIndex: "value",
-                render: (v: number) => num(v),
-              },
-              {
-                title: t("本金盈亏"),
-                dataIndex: "value",
-                render: (v: number) =>
-                  baseline === null ? "—" : signed(v - baseline),
-              },
-              {
-                title: model.base.symbol + t(" 数量"),
-                dataIndex: "base",
-                render: (v: number) => num(v, 8),
-              },
-              {
-                title: model.quote.symbol + t(" 数量"),
-                dataIndex: "quote",
-                render: (v: number) => num(v, 8),
-              },
-            ]}
-          />
-        </section>
-      )}
       {position?.warnings.map((w) => (
         <Alert key={w} type="warning" title={t(w)} />
       ))}

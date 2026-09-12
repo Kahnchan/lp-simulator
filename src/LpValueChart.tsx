@@ -41,6 +41,8 @@ interface Props {
   target: number;
   baseline: number | null;
   quote: string;
+  holdings: (price: number) => { base: number; quote: number };
+  baseSymbol: string;
 }
 const priceText = (v: number) =>
   v.toLocaleString(getLocale(), { maximumSignificantDigits: 9 });
@@ -74,6 +76,8 @@ export default function LpValueChart({
   target,
   baseline,
   quote,
+  holdings,
+  baseSymbol,
 }: Props) {
   const { t, locale } = useI18n();
   const host = useRef<HTMLDivElement>(null);
@@ -254,17 +258,52 @@ export default function LpValueChart({
       },
       tooltip: {
         trigger: "axis",
-        renderMode: "richText",
+        renderMode: "html",
+        padding: 0,
+        extraCssText: "border-radius:12px;box-shadow:0 8px 28px #0005;",
         confine: true,
         backgroundColor: "#202020",
         borderColor: "#3a3a3a",
         textStyle: { color: "#eee" },
         axisPointer: {
           type: "line",
+          z: 1,
           lineStyle: { color: "#8b93a6", type: "dashed" },
           label: { backgroundColor: "#444" },
         },
-        valueFormatter: (v: unknown) => valueText(Number(v)) + " " + quote,
+        formatter: (params: { value: number[] }[]) => {
+          const price = Number(params[0]?.value?.[0]);
+          if (!Number.isFinite(price) || price < 0) return "";
+          const point = model.at(price);
+          const amounts = holdings(price);
+          // Escape every external label before inserting HTML into the tooltip.
+          const safe = (text: string) =>
+            text.replace(
+              /[&<>"']/g,
+              (char) =>
+                ({
+                  "&": "&amp;",
+                  "<": "&lt;",
+                  ">": "&gt;",
+                  '"': "&quot;",
+                  "'": "&#39;",
+                })[char]!,
+            );
+          const row = (
+            label: string,
+            amount: string,
+            unit: string,
+            color?: string,
+          ) =>
+            `<div class="lp-tip-row"><span class="lp-tip-label">${color ? `<i style="background:${color}"></i>` : ""}${safe(label)}</span><span class="lp-tip-number">${safe(amount)}${unit ? ` <span class="lp-tip-unit">${safe(unit)}</span>` : ""}</span></div>`;
+          const quantity = (v: number) =>
+            v.toLocaleString(getLocale(), { maximumSignificantDigits: 7 });
+          return `<div class="lp-tip">
+            <div class="lp-tip-heading"><span>${safe(t("模拟价格"))}</span><strong>${safe(priceText(price))}<small>${safe(quote)} / ${safe(baseSymbol)}</small></strong></div>
+            <div class="lp-tip-group">${row(t("LP 价值"), valueText(point.value), quote, "#7897ff")}${row(t("持币不动"), valueText(point.hold), quote, "#e8b36d")}</div>
+            <div class="lp-tip-holdings"><div class="lp-tip-caption">${safe(t("剩余持币"))}</div>${row(baseSymbol, quantity(amounts.base), "")}${row(quote, quantity(amounts.quote), "")}</div>
+          </div>`;
+        },
       },
       dataZoom: [
         {
@@ -287,10 +326,18 @@ export default function LpValueChart({
           name: t("LP 价值"),
           type: "line",
           showSymbol: false,
+          symbol: "circle",
+          symbolSize: 8,
+          z: 5,
           data: points.map((p) => [p.price, p.value]),
           lineStyle: { color: "#7897ff", width: 2.5 },
           areaStyle: { opacity: 0 },
-          itemStyle: { color: "#7897ff" },
+          itemStyle: {
+            color: "#7897ff",
+            opacity: 1,
+            borderColor: "#eef1ff",
+            borderWidth: 2,
+          },
           markArea: {
             silent: true,
             itemStyle: { color: "rgba(70,190,156,0.12)" },
@@ -356,17 +403,27 @@ export default function LpValueChart({
           name: t("持币不动"),
           type: "line",
           showSymbol: false,
+          symbol: "circle",
+          symbolSize: 8,
+          z: 5,
           data: points.map((p) => [p.price, p.hold]),
           lineStyle: { color: "#e1ad72", width: 2, type: "dashed" },
-          itemStyle: { color: "#e1ad72" },
+          itemStyle: {
+            color: "#e1ad72",
+            opacity: 1,
+            borderColor: "#fff0da",
+            borderWidth: 2,
+          },
         },
         {
           id: "target",
           name: t("模拟价格"),
           type: "scatter",
           symbolSize: 10,
+          z: 100,
           itemStyle: {
             color: "#cf9fff",
+            opacity: 1,
             borderColor: "#131313",
             borderWidth: 2,
             shadowBlur: 12,
@@ -394,6 +451,8 @@ export default function LpValueChart({
     target,
     baseline,
     quote,
+    holdings,
+    baseSymbol,
     width,
     visible.min,
     visible.max,

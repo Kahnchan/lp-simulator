@@ -239,5 +239,7 @@
   "价格降低 {0}%": "Decrease price by {0}%",
   "价格提高 {0}%": "Increase price by {0}%",
   "放大价格范围": "Zoom in on price range",
-  "缩小价格范围": "Zoom out of price range"
+  "缩小价格范围": "Zoom out of price range",
+  "重置布局": "Reset layout",
+  "剩余持币": "Remaining tokens"
 }

@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Slider } from "antd";
 import { Minus, Plus } from "lucide-react";
@@ -50,30 +51,87 @@ export default function LpPriceSlider({
           : [min, max],
     );
   }, [value, fullMin, fullMax]);
+  const rangeRef = useRef(range);
+  rangeRef.current = range;
+  const frame = useRef(0);
+  const zoomTarget = useRef<number[] | null>(null);
+  const drag = useRef<{
+    id: number;
+    x: number;
+    width: number;
+    range: number[];
+    value: number;
+    handle: boolean;
+  } | null>(null);
+  const stopAnimation = useCallback(() => {
+    cancelAnimationFrame(frame.current);
+    frame.current = 0;
+    zoomTarget.current = null;
+  }, []);
+  useEffect(() => stopAnimation, [stopAnimation]);
+  useEffect(() => {
+    stopAnimation();
+  }, [fullMin, fullMax, stopAnimation]);
+  const animateRange = useCallback((next: number[]) => {
+    zoomTarget.current = next;
+    if (frame.current) return;
+    let previousTime = performance.now();
+    const tick = (time: number) => {
+      const target = zoomTarget.current;
+      if (!target) {
+        frame.current = 0;
+        return;
+      }
+      const current = rangeRef.current;
+      const alpha = 1 - Math.exp(-Math.min(64, time - previousTime) / 45);
+      previousTime = time;
+      const done =
+        Math.max(
+          Math.abs(target[0] - current[0]),
+          Math.abs(target[1] - current[1]),
+        ) <
+        (target[1] - target[0]) * 0.0001;
+      const updated = done
+        ? target
+        : current.map((v, i) => v + (target[i] - v) * alpha);
+      rangeRef.current = updated;
+      setRange(updated);
+      if (done) {
+        frame.current = 0;
+        zoomTarget.current = null;
+      } else frame.current = requestAnimationFrame(tick);
+    };
+    frame.current = requestAnimationFrame(tick);
+  }, []);
   const sliderRegion = useRef<HTMLDivElement>(null);
   const zoom = useCallback(
-    (factor: number) => {
-      setRange(([min, max]) => {
-        const span = Math.max(
-          value * 1e-6,
-          Math.min(Math.max(fullMax, value) * 100, (max - min) * factor),
-        );
-        const start = Math.max(0, value - span / 2);
-        return [start, start + span];
-      });
+    (factor: number, anchor = 0.5) => {
+      const [min, max] = zoomTarget.current ?? rangeRef.current;
+      const span = Math.max(
+        value * 1e-6,
+        Math.min(Math.max(fullMax, value) * 100, (max - min) * factor),
+      );
+      const pivot = min + (max - min) * anchor;
+      const start = Math.max(0, pivot - span * anchor);
+      animateRange([start, start + span]);
     },
-    [value, fullMax],
+    [value, fullMax, animateRange],
   );
   useEffect(() => {
     const region = sliderRegion.current;
     if (!region) return;
     const onWheel = (event: WheelEvent) => {
-      if (!event.deltaY) return;
+      if (!event.deltaY || drag.current) return;
       event.preventDefault();
       const delta =
         event.deltaY *
         (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
-      zoom(Math.exp(Math.max(-100, Math.min(100, delta)) * 0.004));
+      const rect = region.getBoundingClientRect();
+      const anchor = Math.max(
+        0,
+        Math.min(1, (event.clientX - rect.left) / rect.width),
+      );
+      zoom(Math.exp(Math.max(-100, Math.min(100, delta)) * 0.002), anchor);
     };
     region.addEventListener("wheel", onWheel, { passive: false });
     return () => region.removeEventListener("wheel", onWheel);
@@ -81,6 +139,50 @@ export default function LpPriceSlider({
   const format = (price: number) =>
     price.toLocaleString(getLocale(), { maximumSignificantDigits: 8 });
   const change = (price: number) => onChange(Number(price.toPrecision(12)));
+  const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    stopAnimation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    drag.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      width: rect.width,
+      range: [...rangeRef.current],
+      value,
+      handle: !!(event.target as HTMLElement).closest(".ant-slider-handle"),
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    if (drag.current.handle)
+      event.currentTarget
+        .querySelector<HTMLElement>(".ant-slider-handle")
+        ?.focus();
+  };
+  const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const gesture = drag.current;
+    if (!gesture || gesture.id !== event.pointerId) return;
+    const span = gesture.range[1] - gesture.range[0];
+    const offset = ((event.clientX - gesture.x) / gesture.width) * span;
+    if (gesture.handle)
+      change(
+        Math.max(
+          Number.MIN_VALUE,
+          Math.min(
+            gesture.range[1],
+            Math.max(gesture.range[0], gesture.value + offset),
+          ),
+        ),
+      );
+    else {
+      const start = Math.max(0, gesture.range[0] - offset);
+      const next = [start, start + span];
+      rangeRef.current = next;
+      setRange(next);
+    }
+  };
+  const finishDrag = () => {
+    drag.current = null;
+  };
   return (
     <div className="lp-price-control">
       <div className="lp-price-control-head">
@@ -92,10 +194,11 @@ export default function LpPriceSlider({
           <button
             type="button"
             onClick={() => {
+              stopAnimation();
               setRange([Math.min(fullMin, value), Math.max(fullMax, value)]);
             }}
           >
-            {t("全范围")}
+            {t("重置布局")}
           </button>
           <button
             type="button"
@@ -142,7 +245,19 @@ export default function LpPriceSlider({
           </button>
         </div>
       </div>
-      <div ref={sliderRegion}>
+      <div
+        ref={sliderRegion}
+        className="lp-price-drag-region"
+        onPointerDown={startDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={finishDrag}
+        onPointerCancel={finishDrag}
+        onLostPointerCapture={finishDrag}
+        onMouseDownCapture={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+      >
         <Slider
           included={false}
           style={
