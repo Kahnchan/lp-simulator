@@ -1,0 +1,130 @@
+.usdc-valuation {
+  margin: 24px 0 28px;
+  padding: 22px 24px;
+  background: #191919;
+  border: 1px solid #292929;
+  border-radius: var(--lp-radius-panel);
+}
+.usdc-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.usdc-heading h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.usdc-heading > span {
+  font-size: 12px;
+}
+.usdc-controls {
+  display: grid;
+  grid-template-columns:
+    minmax(160px, 1.5fr) minmax(120px, 1fr) minmax(140px, 1fr)
+    auto;
+  align-items: end;
+  gap: 14px;
+}
+.usdc-controls .field {
+  margin: 0;
+  min-width: 0;
+}
+.usdc-controls .ant-input-number,
+.usdc-controls .ant-select {
+  width: 100%;
+}
+.usdc-results {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 26px;
+}
+.usdc-result {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.usdc-result > span {
+  font-size: 13px;
+  color: #a0a0a0;
+}
+.usdc-result strong {
+  font-size: 30px;
+  letter-spacing: -0.7px;
+  font-weight: 600;
+}
+.usdc-result small {
+  font-size: 14px;
+  font-weight: 400;
+  color: #a0a0a0;
+  letter-spacing: 0;
+}
+.usdc-profit {
+  color: #5dc9a7;
+}
+.usdc-loss {
+  color: #e58c97;
+}
+.usdc-note {
+  font-size: 12px;
+  color: #929292;
+  margin: 18px 0 0;
+  line-height: 1.6;
+}
+.usdc-note + .usdc-note {
+  margin-top: 4px;
+}
+.usdc-note a {
+  color: inherit;
+}
+@media (max-width: 720px) {
+  .usdc-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+  .usdc-valuation {
+    padding: 18px;
+  }
+  .usdc-results {
+    grid-template-columns: 1fr;
+  }
+  .usdc-result strong {
+    font-size: 26px;
+  }
+  .usdc-heading {
+    flex-wrap: wrap;
+  }
+}
+
+.usdc-capital-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+}
+.usdc-capital-label .ant-btn {
+  height: 24px;
+  padding: 0 4px;
+  font-size: 12px;
+}
+
+.usdc-entry-value {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.usdc-entry-value small {
+  font-size: 12px;
+  color: #999;
+  font-weight: 400;
+}
+.usdc-capital-edit {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}

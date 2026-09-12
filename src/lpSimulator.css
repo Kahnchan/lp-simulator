@@ -191,7 +191,7 @@
   gap: 16px;
   padding-top: clamp(24px, 8vh, 80px);
 }
-.lp-import-empty > aside.panel,
+.lp-import-empty > .lp-import-sidebar,
 .lp-import-empty > .content {
   width: min(100%, 360px);
 }
@@ -384,4 +384,62 @@ html[lang="en-US"] .quick .ant-btn {
 
 .lp-favorites-toolbar:empty {
   display: none;
+}
+
+.lp-import-sidebar {
+  min-width: 0;
+  align-self: start;
+}
+.lp-valuation-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 16px 0;
+}
+.lp-usdc-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #a1a1aa;
+  cursor: pointer;
+}
+.lp-import-sidebar .usdc-valuation {
+  margin: 20px 0 0;
+  padding: 22px;
+}
+.lp-import-sidebar .usdc-heading {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lp-import-sidebar .usdc-controls,
+.lp-import-sidebar .usdc-results {
+  grid-template-columns: minmax(0, 1fr);
+}
+.lp-import-sidebar .usdc-result strong {
+  font-size: 26px;
+  overflow-wrap: anywhere;
+}
+.lp-import-sidebar .usdc-results {
+  gap: 22px;
+}
+.lp-import-sidebar .usdc-capital-edit {
+  flex-direction: column;
+}
+.lp-import-sidebar .usdc-controls > .ant-btn {
+  width: 100%;
+}
+
+.lp-live .section-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lp-pair-switch.ant-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: #929292;
+  flex-shrink: 0;
 }

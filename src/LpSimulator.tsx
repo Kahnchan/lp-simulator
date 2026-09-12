@@ -1,5 +1,5 @@
 import { createPositionCache, positionSourceKey } from "./lpPositionCache";
-import { Star, X } from "lucide-react";
+import { ArrowLeftRight, Star, X } from "lucide-react";
 import {
   PREFERENCES_KEY,
   FAVORITES_KEY,
@@ -13,10 +13,19 @@ import {
 } from "./lpPreferences";
 import { useI18n, getLocale } from "./useI18n";
 import LpPriceSlider from "./LpPriceSlider";
+import LpUsdcValuation from "./LpUsdcPanel";
 import LpValueChart from "./LpValueChart";
 import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Alert, Button, Popover, Input, InputNumber, Select } from "antd";
+import {
+  Alert,
+  Button,
+  Popover,
+  Input,
+  InputNumber,
+  Select,
+  Switch,
+} from "antd";
 import {
   importSimulationPosition,
   type SimulationImport,
@@ -128,6 +137,7 @@ export default function LpSimulator({
   const [saveError, setSaveError] = useState("");
   const [cost, setCost] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showUsdc, setShowUsdc] = useState(false);
   const [error, setError] = useState("");
   const request = useRef(0);
   function restoreRecord(p: SimulationPosition, rev: boolean) {
@@ -240,6 +250,53 @@ export default function LpSimulator({
       if (id === request.current) setError(rpcErrorMessage(e));
     } finally {
       if (id === request.current) setLoading(false);
+    }
+  }
+  function switchQuote(rev: boolean) {
+    if (!position || rev === reverse || stale) return;
+    const nextEntry = entry !== null && entry > 0 ? 1 / entry : null;
+    let nextCost =
+      cost !== null && entry !== null && entry > 0 ? cost / entry : null;
+    // A capital amount without an entry price cannot be converted to the other token.
+    // Preserve that direction's draft so switching back restores it.
+    try {
+      localStorage.setItem(
+        entryRecordKey(position, reverse),
+        JSON.stringify({ entry, cost }),
+      );
+      if (entry === null)
+        nextCost = parseEntryRecord(
+          localStorage.getItem(entryRecordKey(position, rev)),
+        ).cost;
+      localStorage.setItem(
+        entryRecordKey(position, rev),
+        JSON.stringify({ entry: nextEntry, cost: nextCost }),
+      );
+      setSaveError("");
+    } catch {
+      setSaveError("浏览器未能保存入场记录，当前输入仅保留在本页。");
+    }
+    request.current++;
+    setLoading(false);
+    setReverse(rev);
+    setEntry(nextEntry);
+    setCost(nextCost);
+    setTarget(
+      target !== null && Number.isFinite(target) && target > 0
+        ? 1 / target
+        : simulationModel(position, rev).price,
+    );
+    if (history) {
+      setHistory({
+        ...history,
+        first: { ...history.first, price: 1 / history.first.price },
+        latest: history.latest
+          ? { ...history.latest, price: 1 / history.latest.price }
+          : undefined,
+      });
+      setHistoryStatus("");
+    } else {
+      void fetchHistory(position, rev, { ...form }, request.current);
     }
   }
   const baseline = simulationEntryValue(model, entry, cost);
@@ -494,240 +551,249 @@ export default function LpSimulator({
       <div
         className={`layout ${model ? "lp-import-ready" : "lp-import-empty"}`}
       >
-        <aside className="panel" ref={importCardRef}>
-          <h2>
-            <span>{t("导入 NFT 仓位")}</span>
-          </h2>
-          <label className="field">
-            <span>{t("协议")}</span>
-            <Select
-              aria-label={t("协议")}
-              value={form.protocol}
-              options={[
-                { label: "Uniswap V3", value: "uniswap-v3" },
-                { label: "PancakeSwap V3", value: "pancakeswap-v3" },
-                { label: "Uniswap V4", value: "uniswap-v4" },
-                { label: "Aerodrome / Slipstream", value: "aerodrome" },
-              ]}
-              onChange={(protocol: SimulationProtocol) =>
-                edit({
-                  ...savedImport(
-                    preferences.current,
-                    form.chainId,
-                    protocol,
-                    form.tokenId,
-                  ),
-                })
-              }
-            />
-          </label>
-          <details className="lp-contract-settings">
-            <summary>{t("自定义合约")}</summary>
+        <div className="lp-import-sidebar">
+          <aside className="panel" ref={importCardRef}>
+            <h2>
+              <span>{t("导入 NFT 仓位")}</span>
+            </h2>
             <label className="field">
-              <span>{t("NFT 管理合约")}</span>
-              <Input
-                aria-label={t("NFT 管理合约")}
-                value={form.manager}
-                onChange={(e) => edit({ manager: e.target.value })}
+              <span>{t("协议")}</span>
+              <Select
+                aria-label={t("协议")}
+                value={form.protocol}
+                options={[
+                  { label: "Uniswap V3", value: "uniswap-v3" },
+                  { label: "PancakeSwap V3", value: "pancakeswap-v3" },
+                  { label: "Uniswap V4", value: "uniswap-v4" },
+                  { label: "Aerodrome / Slipstream", value: "aerodrome" },
+                ]}
+                onChange={(protocol: SimulationProtocol) =>
+                  edit({
+                    ...savedImport(
+                      preferences.current,
+                      form.chainId,
+                      protocol,
+                      form.tokenId,
+                    ),
+                  })
+                }
               />
             </label>
-            {form.protocol === "uniswap-v4" && (
+            <details className="lp-contract-settings">
+              <summary>{t("自定义合约")}</summary>
               <label className="field">
-                <span>V4 StateView</span>
+                <span>{t("NFT 管理合约")}</span>
                 <Input
-                  aria-label="V4 StateView"
-                  value={form.stateView}
-                  onChange={(e) => edit({ stateView: e.target.value })}
+                  aria-label={t("NFT 管理合约")}
+                  value={form.manager}
+                  onChange={(e) => edit({ manager: e.target.value })}
                 />
               </label>
-            )}
-          </details>
-          <label className="field">
-            <span>{t("NFT 编号")}</span>
-            <Input
-              aria-label={t("NFT 编号")}
-              value={form.tokenId}
-              onChange={(e) => edit({ tokenId: e.target.value })}
-              onPressEnter={() => void load()}
-            />
-          </label>
-          <Button
-            block
-            type="primary"
-            loading={loading}
-            onClick={() => void load()}
-          >
-            {t("读取仓位")}
-          </Button>
-          {currentFavorite && (
-            <Button
-              className="lp-favorite-toggle"
-              block
-              aria-pressed={Boolean(isFavorite)}
-              icon={
-                <Star size={15} fill={isFavorite ? "currentColor" : "none"} />
-              }
-              onClick={() =>
-                updateFavorites(
-                  isFavorite
-                    ? favorites.filter(
-                        (f) => favoriteKey(f) !== favoriteKey(currentFavorite),
-                      )
-                    : [...favorites, currentFavorite],
-                )
-              }
-            >
-              {isFavorite ? t("已收藏") : t("收藏此仓位")}
-            </Button>
-          )}
-          {storageError && (
-            <Alert
-              type="warning"
-              title={t("浏览器未能保存配置或收藏，当前会话仍可使用。")}
-            />
-          )}
-          {!form.manager && (
-            <Alert
-              type="info"
-              title={t("该链与协议暂无预设，请展开自定义合约填写地址。")}
-            />
-          )}
-          {error && (
-            <Alert
-              type="error"
-              showIcon
-              title={t("读取失败")}
-              description={t(error)}
-            />
-          )}
-          {position && (
-            <details className="lp-read-details">
-              <summary>{t("仓位详情")}</summary>
-              <div className="note">
-                {t("已读取网络：")}
-                {position.chainId}
-                <br />
-                NFT：{position.tokenId}
-                <br />
-                {t("区块：")}
-                {position.blockNumber}
-                <br />
-                {t("区块时间：")}
-                {new Date(position.blockTime).toLocaleString(locale)}
-                <br />
-                {t("持有人：")}
-                <span className="address">{position.owner}</span>
-              </div>
+              {form.protocol === "uniswap-v4" && (
+                <label className="field">
+                  <span>V4 StateView</span>
+                  <Input
+                    aria-label="V4 StateView"
+                    value={form.stateView}
+                    onChange={(e) => edit({ stateView: e.target.value })}
+                  />
+                </label>
+              )}
             </details>
-          )}
-          {model && (
-            <>
-              <div className="divider" />
-              <label className="field">
-                <span>{t("计价单位")}</span>
-                <Select
-                  aria-label={t("计价单位")}
-                  value={reverse ? "token0" : "token1"}
-                  options={[
-                    { value: "token1", label: position!.token1.symbol },
-                    { value: "token0", label: position!.token0.symbol },
-                  ]}
-                  onChange={(v) => {
-                    const rev = v === "token0";
-                    request.current++;
-                    setLoading(false);
-                    setReverse(rev);
-                    restoreRecord(position!, rev);
-                    setTarget(simulationModel(position!, rev).price);
-                    void fetchHistory(
-                      position!,
-                      rev,
-                      { ...form },
-                      request.current,
-                    );
-                  }}
-                />
-              </label>
-              <label className="field">
-                <span>
-                  {t("入场价格 ·")} {model.quote.symbol}/{model.base.symbol}
-                </span>
-                <InputNumber
-                  aria-label={t("记录入场价格")}
-                  min={Number.MIN_VALUE}
-                  value={entry}
-                  placeholder={t("填写实际入场价")}
-                  onChange={(v) => saveRecord(v, cost)}
-                />
-              </label>
-              {historyStatus && (
-                <Alert
-                  type={
-                    historyStatus.startsWith("历史读取失败")
-                      ? "warning"
-                      : "info"
-                  }
-                  title={t(historyStatus)}
-                />
-              )}
-              {history && (
-                <div className="lp-entry-options">
-                  {[
-                    [t("首次创建"), history.first],
-                    [t("最近加仓"), history.latest],
-                  ].map(([label, raw]) => {
-                    if (!raw || typeof raw === "string") return null;
-                    return (
-                      <div className="lp-entry-option" key={String(label)}>
-                        <div className="lp-entry-choice">
-                          <span>
-                            <small>{String(label)}</small>
-                            <strong>{num(raw.price, 8)}</strong>
-                          </span>
-                          <Button
-                            size="small"
-                            onClick={() => saveRecord(raw.price, cost)}
-                            aria-label={t("采用{0}价", String(label))}
-                          >
-                            {t("采用")}
-                          </Button>
-                        </div>
-                        <details>
-                          <summary>{t("来源")}</summary>
-                          <p>
-                            {new Date(raw.time).toLocaleString(locale)}
-                            {t("· 区块")} {raw.block}
-                          </p>
-                          <p className="address">{raw.transaction}</p>
-                          <p>{t(raw.method)}</p>
-                        </details>
-                      </div>
-                    );
-                  })}
-                  {history.warning && (
-                    <details>
-                      <summary>{t("历史读取说明")}</summary>
-                      <p>{t(history.warning)}</p>
-                    </details>
-                  )}
+            <label className="field">
+              <span>{t("NFT 编号")}</span>
+              <Input
+                aria-label={t("NFT 编号")}
+                value={form.tokenId}
+                onChange={(e) => edit({ tokenId: e.target.value })}
+                onPressEnter={() => void load()}
+              />
+            </label>
+            <Button
+              block
+              type="primary"
+              loading={loading}
+              onClick={() => void load()}
+            >
+              {t("读取仓位")}
+            </Button>
+            {currentFavorite && (
+              <Button
+                className="lp-favorite-toggle"
+                block
+                aria-pressed={Boolean(isFavorite)}
+                icon={
+                  <Star size={15} fill={isFavorite ? "currentColor" : "none"} />
+                }
+                onClick={() =>
+                  updateFavorites(
+                    isFavorite
+                      ? favorites.filter(
+                          (f) =>
+                            favoriteKey(f) !== favoriteKey(currentFavorite),
+                        )
+                      : [...favorites, currentFavorite],
+                  )
+                }
+              >
+                {isFavorite ? t("已收藏") : t("收藏此仓位")}
+              </Button>
+            )}
+            {storageError && (
+              <Alert
+                type="warning"
+                title={t("浏览器未能保存配置或收藏，当前会话仍可使用。")}
+              />
+            )}
+            {!form.manager && (
+              <Alert
+                type="info"
+                title={t("该链与协议暂无预设，请展开自定义合约填写地址。")}
+              />
+            )}
+            {error && (
+              <Alert
+                type="error"
+                showIcon
+                title={t("读取失败")}
+                description={t(error)}
+              />
+            )}
+            {position && (
+              <details className="lp-read-details">
+                <summary>{t("仓位详情")}</summary>
+                <div className="note">
+                  {t("已读取网络：")}
+                  {position.chainId}
+                  <br />
+                  NFT：{position.tokenId}
+                  <br />
+                  {t("区块：")}
+                  {position.blockNumber}
+                  <br />
+                  {t("区块时间：")}
+                  {new Date(position.blockTime).toLocaleString(locale)}
+                  <br />
+                  {t("持有人：")}
+                  <span className="address">{position.owner}</span>
                 </div>
-              )}
-              {saveError && <Alert type="warning" title={t(saveError)} />}
-              <label className="field">
-                <span>
-                  {t("实际投入本金（可选，{0}）", model.quote.symbol)}
-                </span>
-                <InputNumber
-                  aria-label={t("实际投入本金")}
-                  min={0.000000001}
-                  value={cost}
-                  placeholder={t("默认按入场价估算")}
-                  onChange={(v) => saveRecord(entry, v)}
-                />
-              </label>
-            </>
-          )}
-        </aside>
+              </details>
+            )}
+            {model && (
+              <>
+                <div className="divider" />
+                <label className="field">
+                  <span>{t("计价单位")}</span>
+                  <Select
+                    aria-label={t("计价单位")}
+                    value={reverse ? "token0" : "token1"}
+                    options={[
+                      { value: "token1", label: position!.token1.symbol },
+                      { value: "token0", label: position!.token0.symbol },
+                    ]}
+                    disabled={!!stale}
+                    onChange={(v) => switchQuote(v === "token0")}
+                  />
+                </label>
+                <label className="field">
+                  <span>
+                    {t("入场价格 ·")} {model.quote.symbol}/{model.base.symbol}
+                  </span>
+                  <InputNumber
+                    aria-label={t("记录入场价格")}
+                    min={Number.MIN_VALUE}
+                    value={entry}
+                    placeholder={t("填写实际入场价")}
+                    onChange={(v) => saveRecord(v, cost)}
+                  />
+                </label>
+                {historyStatus && (
+                  <Alert
+                    type={
+                      historyStatus.startsWith("历史读取失败")
+                        ? "warning"
+                        : "info"
+                    }
+                    title={t(historyStatus)}
+                  />
+                )}
+                {history && (
+                  <div className="lp-entry-options">
+                    {[
+                      [t("首次创建"), history.first],
+                      [t("最近加仓"), history.latest],
+                    ].map(([label, raw]) => {
+                      if (!raw || typeof raw === "string") return null;
+                      return (
+                        <div className="lp-entry-option" key={String(label)}>
+                          <div className="lp-entry-choice">
+                            <span>
+                              <small>{String(label)}</small>
+                              <strong>{num(raw.price, 8)}</strong>
+                            </span>
+                            <Button
+                              size="small"
+                              onClick={() => saveRecord(raw.price, cost)}
+                              aria-label={t("采用{0}价", String(label))}
+                            >
+                              {t("采用")}
+                            </Button>
+                          </div>
+                          <details>
+                            <summary>{t("来源")}</summary>
+                            <p>
+                              {new Date(raw.time).toLocaleString(locale)}
+                              {t("· 区块")} {raw.block}
+                            </p>
+                            <p className="address">{raw.transaction}</p>
+                            <p>{t(raw.method)}</p>
+                          </details>
+                        </div>
+                      );
+                    })}
+                    {history.warning && (
+                      <details>
+                        <summary>{t("历史读取说明")}</summary>
+                        <p>{t(history.warning)}</p>
+                      </details>
+                    )}
+                  </div>
+                )}
+                {saveError && <Alert type="warning" title={t(saveError)} />}
+                <label className="field">
+                  <span>
+                    {t("实际投入本金（可选，{0}）", model.quote.symbol)}
+                  </span>
+                  <InputNumber
+                    aria-label={t("实际投入本金")}
+                    min={0.000000001}
+                    value={cost}
+                    placeholder={t("默认按入场价估算")}
+                    onChange={(v) => saveRecord(entry, v)}
+                  />
+                </label>
+              </>
+            )}
+          </aside>
+          <div id="lp-usdc-sidebar" hidden={!showUsdc}>
+            {position && !stale && (
+              <LpUsdcValuation
+                key={`${position.chainId}:${position.manager}:${position.tokenId}`}
+                position={position}
+                firstEntry={history?.first ?? null}
+                historyStatus={historyStatus}
+                retryHistory={() =>
+                  void fetchHistory(position, reverse, form, request.current)
+                }
+                source={form}
+                reverse={reverse}
+                target={target}
+                active={active && showUsdc}
+                read={positionCache.load}
+              />
+            )}
+          </div>
+        </div>
         <section className="content">
           {stale && (
             <Alert
@@ -745,6 +811,15 @@ export default function LpSimulator({
                   <span>
                     {model.base.symbol} / {model.quote.symbol}
                   </span>
+                  <Button
+                    type="text"
+                    className="lp-pair-switch"
+                    aria-label={t("切换币种顺序")}
+                    title={t("切换币种顺序")}
+                    icon={<ArrowLeftRight size={18} />}
+                    onClick={() => switchQuote(!reverse)}
+                    disabled={!!stale}
+                  />
                 </h2>
               </div>
               <div className="target">
@@ -805,6 +880,22 @@ export default function LpSimulator({
                             : t("采用填写的投入本金"),
                         )}
                   </p>
+                  <div className="lp-valuation-heading">
+                    <span className="muted">
+                      {t("池内计价 · {0}", model.quote.symbol)}
+                    </span>
+                    <label className="lp-usdc-toggle">
+                      <span>{t("USDC 本金盈亏")}</span>
+                      <Switch
+                        size="small"
+                        aria-label={t("USDC 本金盈亏")}
+                        aria-controls="lp-usdc-sidebar"
+                        checked={showUsdc}
+                        onChange={setShowUsdc}
+                        disabled={!!stale}
+                      />
+                    </label>
+                  </div>
                   <div className="metrics">
                     {stats.map(([label, v]) => (
                       <div key={label}>
@@ -874,9 +965,6 @@ export default function LpSimulator({
           )}
         </section>
       </div>
-      {position?.warnings.map((w) => (
-        <Alert key={w} type="warning" title={t(w)} />
-      ))}
     </main>
   );
 }

@@ -48,6 +48,7 @@ test("all UI translation keys have English copy and matching placeholders", () =
     "src/LpSimulator.tsx",
     "src/LpPriceSlider.tsx",
     "src/LpValueChart.tsx",
+    "src/LpUsdcPanel.tsx",
     "examples/lp-simulator.jsx",
   ];
   for (const file of files) {

@@ -318,3 +318,59 @@ test("parallel history windows preserve newest-event ordering and do not skip fa
     [],
   );
 });
+
+// USDC conversion must preserve the selected reference token across quote reversal.
+import { referenceValue, validPrice, fetchUsdcPrices } from "./lpUsdcPricing";
+test("USDC valuation handles both reference orientations and rejects invalid ratios", () => {
+  assert.equal(referenceValue(1, 40000, 40000, true, 600), 1200);
+  assert.equal(referenceValue(40000, 1, 1 / 40000, false, 600), 1200);
+  assert.equal(referenceValue(0, 40000, 40000, true, 300), 300);
+  assert.equal(referenceValue(1, 40000, 0, true, 600), null);
+  assert.equal(referenceValue(1, 40000, 40000, true, NaN), null);
+});
+test("USDC price feed rejects stale, low-confidence and invalid quotes", () => {
+  const now = 1800000000000;
+  const quote = { price: 600, timestamp: now / 1000, confidence: 0.99 };
+  assert.ok(validPrice(quote, now));
+  assert.equal(
+    validPrice({ ...quote, timestamp: now / 1000 - 901 }, now),
+    null,
+  );
+  assert.equal(validPrice({ ...quote, confidence: 0.5 }, now), null);
+  assert.equal(validPrice({ ...quote, price: 0 }, now), null);
+  assert.equal(validPrice({ ...quote, timestamp: NaN }, now), null);
+});
+
+test("entry USDC conversion requests historical quotes rather than today's prices", async (context) => {
+  const stamp = 1700000000;
+  let requested = "";
+  context.mock.method(globalThis, "fetch", async (url: string) => {
+    requested = String(url);
+    return {
+      ok: true,
+      json: async () => ({
+        coins: {
+          "bsc:0xaaa": { price: 600, timestamp: stamp, confidence: 0.99 },
+          "ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {
+            price: 0.999,
+            timestamp: stamp,
+            confidence: 0.99,
+          },
+        },
+      }),
+    };
+  });
+  const result = await fetchUsdcPrices(
+    {
+      ...p,
+      chainId: 56,
+      token0: { ...p.token0, address: "0xAAA" },
+      token1: { ...p.token1, address: "0xBBB" },
+    },
+    new AbortController().signal,
+    stamp,
+  );
+  assert.ok(requested.includes("/historical/1700000000/"));
+  assert.equal(result[0]?.price, 600 / 0.999);
+  assert.equal(result[1], null);
+});
